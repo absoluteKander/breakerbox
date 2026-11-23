@@ -96,6 +96,9 @@ Column {
                         font.family: Style.font.family
                         font.pixelSize: Style.font.caption
                         wrapMode: Text.WordWrap
+                        // At-a-glance: the gist, not the essay. The full text is in the service's own UI.
+                        maximumLineCount: 4
+                        elide: Text.ElideRight
                         width: parent.width - Style.space(20)
                     }
                 }

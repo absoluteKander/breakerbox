@@ -24,7 +24,7 @@ var ALERT_LEVELS = { WARNING: Core.STATUS.WARN, ERROR: Core.STATUS.ERROR, CRITIC
 
 function alertsFrom(list) {
     return (list || []).filter(function(a) { return !a.dismissed && ALERT_LEVELS[a.level] })
-        .map(function(a) { return { status: ALERT_LEVELS[a.level], text: a.formatted || a.text || a.klass || "Active alert" } })
+        .map(function(a) { return { status: ALERT_LEVELS[a.level], text: Core.plainText(a.formatted || a.text || a.klass) || "Active alert" } })
 }
 
 var adapter = {

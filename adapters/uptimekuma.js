@@ -75,7 +75,7 @@ var adapter = {
             var summary = up === null ? (ctx.previous ? ctx.previous.summary : [])
                 : [{ label: "24h uptime", value: (Math.floor(up * 1000) / 10).toFixed(1) + "%" }]
             var alerts = (page.incident && page.incident.title)
-                ? [{ status: Core.STATUS.WARN, text: "Incident: " + page.incident.title }] : []
+                ? [{ status: Core.STATUS.WARN, text: "Incident: " + Core.plainText(page.incident.title) }] : []
             done(null, { summary: summary, alerts: alerts, groups: groups })
         })
     },

@@ -492,5 +492,35 @@ test("every Text element renders plain text, never HTML", () => {
     assert.deepStrictEqual(missing, [])
 })
 
+// TrueNAS alert text carries HTML. Shown as PlainText it was safe but full
+// of tags (seen live 2026-11-23); plainText makes it readable without ever
+// turning text into markup.
+test("server HTML becomes readable plain text, never markup", () => {
+    const real = 'The deprecated REST API was used to authenticate 335 times in the last 24 hours from the following IP addresses:<br>127.0.0.1, 192.0.2.10.<br>The REST API will be removed in version 26.04. For migration guidance, see the <a href="https://api.truenas.com/v25.10/jsonrpc.html" target="_blank">documentation</a>.'
+    const out = Core.plainText(real)
+    assert.strictEqual(out, "The deprecated REST API was used to authenticate 335 times in the last 24 hours from the following IP addresses:\n127.0.0.1, 192.0.2.10.\nThe REST API will be removed in version 26.04. For migration guidance, see the documentation.")
+    // entities decode to visible text AFTER stripping, so they can't build a tag
+    assert.strictEqual(Core.plainText("a &lt;img src=x&gt; b &amp; c"), "a <img src=x> b & c")
+    assert.strictEqual(Core.plainText("&amp;lt;b&amp;gt;"), "&lt;b&gt;")
+})
+
+test("plainText fails safe on hostile input", () => {
+    const cases = [
+        "<script>alert(1)</script>ok", "<img src='http://x/b.png'>", "unterminated <a href='http://x",
+        "<<b>>", "a‮evil‬ b", "&#8238;rev &#x202E;rev &#0; &#1114112; &#x7f;",
+        "\u0000\u0007bell", "<br/><br /><BR>", null, undefined, 42, "x".repeat(50000), "<".repeat(20000),
+    ]
+    for (const c of cases) {
+        const t0 = Date.now()
+        const out = Core.plainText(c)
+        assert(Date.now() - t0 < 200, "slow on " + String(c).slice(0, 30))
+        assert.strictEqual(typeof out, "string")
+        assert(!/<[a-z\/!]/i.test(out.replace(/&lt;|<(?=[^a-z\/!])/gi, "")) || /&lt;/.test(String(c)), "tag survived: " + JSON.stringify(out).slice(0, 80))
+        assert(!/[‪-‮⁦-⁩\u0000-\u0009\u000b-\u001f\u007f]/.test(out), "control/bidi survived: " + JSON.stringify(out))
+        assert(out.length <= Core.PLAIN_TEXT_MAX)
+    }
+    assert.strictEqual(Core.plainText("<script>alert(1)</script>ok"), "alert(1)ok")
+})
+
 console.log(passed + " passed, " + failed + " failed")
 process.exit(failed ? 1 : 0)

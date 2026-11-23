@@ -407,6 +407,35 @@ function fmtUptime(seconds) {
     return h + "h " + Math.floor((s % 3600) / 60) + "m"
 }
 
+// Server text that may carry HTML (TrueNAS alerts do: <br>, <a href>) as
+// plain text. Tags are dropped (a link keeps its words, never its URL),
+// line breaks survive, and entities are decoded *after* stripping, so
+// "&lt;img&gt;" ends up as the visible text "<img>", never as markup. The
+// result is still shown with Text.PlainText; this only makes it readable.
+var PLAIN_TEXT_MAX = 600
+function plainText(s) {
+    var t = String(s == null ? "" : s).slice(0, 20000)
+    t = t.replace(/<\s*br\s*\/?\s*>/gi, "\n")
+        .replace(/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/gi, "\n")
+        .replace(/<[^<>]*>/g, "")          // whole tags
+        .replace(/<[^<>]*$/, "")           // a tag cut off at the end
+        .replace(/&#(\d{1,7});/g, function(m, n) { return entity(parseInt(n, 10)) })
+        .replace(/&#x([0-9a-f]{1,6});/gi, function(m, n) { return entity(parseInt(n, 16)) })
+        .replace(/&(lt|gt|quot|apos|nbsp|amp);/g, function(m, n) {
+            return { lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", amp: "&" }[n]
+        })
+    t = t.replace(/[‪-‮⁦-⁩]/g, "")   // bidi overrides can disguise text
+    t = t.split("\n").map(function(l) { return l.replace(/[\s\u0000-\u001f\u007f]+/g, " ").trim() })
+        .filter(function(l) { return l !== "" }).join("\n")
+    return t.length > PLAIN_TEXT_MAX ? t.slice(0, PLAIN_TEXT_MAX - 1) + "…" : t
+}
+function entity(code) {
+    // Control characters and invalid code points become a space, never a
+    // character that could reorder or hide text.
+    if (!(code >= 32 && code <= 0x10FFFF) || (code >= 0x7f && code < 0xa0) || (code >= 0x202a && code <= 0x202e) || (code >= 0x2066 && code <= 0x2069)) return " "
+    return String.fromCodePoint(code)
+}
+
 function fmtAgo(ms, now) {
     if (!ms) return "never"
     var s = Math.max(0, Math.round((now - ms) / 1000))

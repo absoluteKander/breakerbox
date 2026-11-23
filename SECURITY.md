@@ -44,6 +44,7 @@ Regression tests live in `tests/run.js`. The ones guarding past bugs:
 | `a new key never overwrites an entry the config still uses` | Editing a service with a new key used to overwrite the keyring entry before the config was written, so a failed write sent the new key to the old URL (review of 0.1.0). |
 | `every Text element renders plain text, never HTML` | Server-supplied names were rendered as HTML, and `<img src>` made the shell fetch a URL. A source tripwire: every `Text` block must say `textFormat: Text.PlainText`. It also fails if it stops finding `Text` elements. |
 | `renderHeaders` CR/LF tests | Header injection from a config value. |
+| `server HTML becomes readable plain text, never markup`, `plainText fails safe on hostile input` | TrueNAS alert text carries HTML; after the PlainText fix it showed raw tags. `Core.plainText` strips tags *before* decoding entities (so `&lt;img&gt;` stays visible text), drops bidi overrides and control characters, and is bounded in length and time. Mutation-checked, including swapping the strip/decode order. |
 
 Some fixes live in QML or shell and can't be unit-tested from Node. Those
 are checked live (below) and the result is recorded here:
@@ -105,6 +106,7 @@ bypass.
 
 ## Audit log
 
+- **2026-11-23, later.** A real TrueNAS alert showed raw `<br>`/`<a href>` tags in the panel (safe, but unreadable). Added `Core.plainText` for TrueNAS alerts and Kuma incident titles, and capped alert text at four lines. Verified live against the real alert.
 - **2026-11-23 (0.1.1).** Marketplace review of 0.1.0 found: key
   overwritten before the config write; `pin` used two TLS connections;
   `screenshots.sh` armed cleanup before its backup (a failed backup deleted
