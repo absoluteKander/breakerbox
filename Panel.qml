@@ -138,6 +138,7 @@ Panel {
 
                     // ── Setup / config problems ──────────────────────
                     Text {
+                        textFormat: Text.PlainText
                         visible: Monitor.configLoaded && Monitor.rawConfig.instances.length === 0 && !Monitor.configBroken
                         width: parent.width
                         text: "Nothing to watch yet."
@@ -158,6 +159,7 @@ Panel {
                     Repeater {
                         model: Monitor.configErrors
                         delegate: Text {
+                            textFormat: Text.PlainText
                             required property string modelData
                             width: body.width
                             text: "Config: " + modelData
@@ -191,6 +193,7 @@ Panel {
 
                     // No instance tab strip (only one instance): still name it.
                     Text {
+                        textFormat: Text.PlainText
                         visible: !!root.currentInstance && root.currentInstances.length === 1
                         text: !root.currentInstance ? ""
                             : (root.services.length === 1 ? root.currentService.label + "  ·  " : "") + root.currentInstance.name
@@ -216,6 +219,7 @@ Panel {
 
                     // Quiet way into setup, always at the bottom.
                     Text {
+                        textFormat: Text.PlainText
                         visible: Monitor.rawConfig.instances.length > 0 || Monitor.configBroken
                         text: "Manage services…"
                         color: root.contentForeground

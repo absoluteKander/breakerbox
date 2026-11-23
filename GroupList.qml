@@ -61,6 +61,7 @@ Column {
                 }
 
                 Text {
+                    textFormat: Text.PlainText
                     id: nameText
                     anchors.left: dot.right
                     anchors.leftMargin: Style.space(8)
@@ -95,6 +96,7 @@ Column {
 
             // Lone member, something wrong: just the reason, under the name.
             Text {
+                textFormat: Text.PlainText
                 visible: groupItem.soloSameName && groupItem.status !== Core.STATUS.OK && !!groupItem.members[0].detail
                 leftPadding: Style.space(15)
                 text: groupItem.soloSameName ? (groupItem.members[0].detail || "") : ""
@@ -131,9 +133,13 @@ Column {
                         }
 
                         Text {
+                            textFormat: Text.PlainText
                             id: memberName
                             anchors.left: memberDot.right
                             anchors.leftMargin: Style.space(7)
+                            // A long name gets cut, never pushed past the card.
+                            width: Math.min(implicitWidth, memberRow.width - memberDot.width - Style.space(7))
+                            elide: Text.ElideRight
                             text: memberRow.modelData.name
                             color: root.contentForeground
                             opacity: memberRow.ok ? 0.65 : 1.0
@@ -143,6 +149,7 @@ Column {
 
                         // Only say why when something's wrong.
                         Text {
+                            textFormat: Text.PlainText
                             visible: !memberRow.ok && !!memberRow.modelData.detail
                             anchors.left: memberName.right
                             anchors.leftMargin: Style.space(8)
@@ -159,6 +166,7 @@ Column {
                 }
 
                 Text {
+                    textFormat: Text.PlainText
                     visible: groupItem.notShown > 0
                     text: "+" + groupItem.notShown + " more"
                     color: root.contentForeground
@@ -171,6 +179,7 @@ Column {
     }
 
     Text {
+        textFormat: Text.PlainText
         visible: root.groups.length === 0
         width: parent.width
         text: "Nothing to show"
@@ -215,6 +224,7 @@ Column {
         }
 
         Text {
+            textFormat: Text.PlainText
             id: countText
             anchors.verticalCenter: parent.verticalCenter
             text: badgeRoot.count

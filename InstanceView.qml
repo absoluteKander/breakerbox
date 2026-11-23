@@ -23,6 +23,7 @@ Column {
     spacing: Style.space(10)
 
     Text {
+        textFormat: Text.PlainText
         visible: !root.snap && !root.down
         text: "Checking…"
         color: root.contentForeground
@@ -32,6 +33,7 @@ Column {
     }
 
     Text {
+        textFormat: Text.PlainText
         visible: root.down || root.retrying
         width: root.width
         text: root.down
@@ -81,12 +83,14 @@ Column {
                     spacing: Style.space(6)
 
                     Text {
+                        textFormat: Text.PlainText
                         text: "●"
                         color: Core.color(modelData.status)
                         font.family: Style.font.family
                         font.pixelSize: Style.font.caption
                     }
                     Text {
+                        textFormat: Text.PlainText
                         text: modelData.text
                         color: root.contentForeground
                         font.family: Style.font.family
@@ -112,6 +116,7 @@ Column {
 
             // Past the row limit: say so, and point at the real UI.
             Text {
+                textFormat: Text.PlainText
                 visible: root.visible_.hidden > 0
                 text: "+" + root.visible_.hidden + " more in " + (root.adapter ? root.adapter.label : "the service")
                 color: root.contentForeground
@@ -134,6 +139,7 @@ Column {
         spacing: Style.space(10)
 
         Text {
+            textFormat: Text.PlainText
             visible: !!root.entry && root.entry.lastOk > 0 && !root.down
             text: "updated " + Core.fmtAgo(root.entry ? root.entry.lastOk : 0, root.now)
             color: root.contentForeground
@@ -143,6 +149,7 @@ Column {
         }
 
         Text {
+            textFormat: Text.PlainText
             text: "Open " + (root.adapter ? root.adapter.label : "") + " \u2197"
             color: root.contentForeground
             opacity: openArea.containsMouse ? 0.9 : 0.4

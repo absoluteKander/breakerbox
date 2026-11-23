@@ -247,6 +247,9 @@ node tests/live.js           # one real poll of every configured instance (read-
 omarchy plugin validate .
 ```
 
+How fixes get tested, and what's treated as hostile input, is in
+[SECURITY.md](SECURITY.md).
+
 **Screenshots** come from a fake lab, so no real addresses ever end up in
 an image. `tests/demo/mocklab.py` (standard-library Python) pretends to be
 Proxmox, Portainer, TrueNAS (including its WebSocket API) and Uptime Kuma

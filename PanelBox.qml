@@ -23,6 +23,7 @@ Rectangle {
         spacing: Style.space(8)
 
         Text {
+            textFormat: Text.PlainText
             visible: root.title.length > 0
             text: root.title
             color: root.contentForeground

@@ -463,5 +463,34 @@ test("a new key never overwrites an entry the config still uses", () => {
     assert.strictEqual(Core.refForNewSecret(cfg, { name: "kuma", secret: "keyring:shared" }), "keyring:kuma")
 })
 
+// Names shown in the panel come from your servers (container and compose
+// names, Kuma monitors, TrueNAS alerts). QML's default AutoText renders HTML,
+// and <img src="http://..."> makes the shell fetch that URL, verified live.
+// So every Text in the plugin must be PlainText. A source tripwire: it reads
+// each Text { ... } block (brace-counted) and fails on one without it.
+test("every Text element renders plain text, never HTML", () => {
+    const fs = require("fs"), path = require("path")
+    const root = path.join(__dirname, "..")
+    const missing = []
+    let seen = 0
+    for (const f of fs.readdirSync(root).filter(f => f.endsWith(".qml"))) {
+        const lines = fs.readFileSync(path.join(root, f), "utf8").split("\n")
+        lines.forEach((line, i) => {
+            if (!/(^|[\s:])Text\s*\{\s*$/.test(line.replace(/\/\/.*$/, ""))) return
+            seen++
+            let depth = 0, ok = false
+            for (let j = i; j < lines.length; j++) {
+                const code = lines[j].replace(/\/\/.*$/, "")
+                if (depth === 1 && /^\s*textFormat:\s*Text\.PlainText\s*$/.test(code)) ok = true
+                for (const ch of code) { if (ch === "{") depth++; else if (ch === "}") depth-- }
+                if (j > i && depth <= 0) break
+            }
+            if (!ok) missing.push(f + ":" + (i + 1))
+        })
+    }
+    assert(seen >= 30, "scanner found only " + seen + " Text elements; it has stopped seeing them")
+    assert.deepStrictEqual(missing, [])
+})
+
 console.log(passed + " passed, " + failed + " failed")
 process.exit(failed ? 1 : 0)

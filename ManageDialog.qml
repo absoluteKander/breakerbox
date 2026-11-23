@@ -304,6 +304,7 @@ Item {
                             height: titleText.implicitHeight
 
                             Text {
+                                textFormat: Text.PlainText
                                 id: titleText
                                 text: root.view === "list" ? "Your services"
                                     : root.editingName ? "Edit " + root.editingName
@@ -314,6 +315,7 @@ Item {
                                 font.bold: true
                             }
                             Text {
+                                textFormat: Text.PlainText
                                 anchors.right: parent.right
                                 anchors.verticalCenter: titleText.verticalCenter
                                 text: "Esc to " + (root.view === "form" ? "go back" : "close")
@@ -325,6 +327,7 @@ Item {
                         }
 
                         Text {
+                            textFormat: Text.PlainText
                             visible: root.readOnly
                             width: parent.width
                             text: "config.json has a syntax error, so it can't be edited here without losing it. Fix it by hand: " + Monitor.configPathShort
@@ -390,6 +393,7 @@ Item {
                                                 Column {
                                                     width: info.width - Style.space(16)
                                                     Text {
+                                                        textFormat: Text.PlainText
                                                         text: row.name
                                                         color: root.fg
                                                         font.family: root.fontFamily
@@ -399,6 +403,7 @@ Item {
                                                         elide: Text.ElideRight
                                                     }
                                                     Text {
+                                                        textFormat: Text.PlainText
                                                         text: !row.loaded ? "not loaded — see config problems in the panel"
                                                             : (row.adapterDef ? row.adapterDef.label : row.modelData.type) + "  ·  " + (row.modelData.url || "")
                                                         color: root.fg
@@ -445,6 +450,7 @@ Item {
                                             height: confirmButtons.implicitHeight
 
                                             Text {
+                                                textFormat: Text.PlainText
                                                 anchors.left: parent.left
                                                 anchors.right: confirmButtons.left
                                                 anchors.verticalCenter: parent.verticalCenter
@@ -482,6 +488,7 @@ Item {
                             }
 
                             Text {
+                                textFormat: Text.PlainText
                                 visible: !root.readOnly && root.allCapped
                                 width: body.width
                                 text: "That's every service at its limit. This is built for small labs; " + Core.BIGGER_LAB_HINT + "."
@@ -532,6 +539,7 @@ Item {
                                 spacing: Style.space(6)
 
                                 Text {
+                                    textFormat: Text.PlainText
                                     width: parent.width
                                     text: "Check this matches the certificate your server shows in its own settings before trusting it."
                                     color: root.fg
@@ -540,6 +548,7 @@ Item {
                                     wrapMode: Text.WordWrap
                                 }
                                 Text {
+                                    textFormat: Text.PlainText
                                     width: parent.width
                                     text: root.cert ? "Subject: " + (root.cert.subject || "?") + "\nExpires: " + (root.cert.expires || "?") : ""
                                     color: root.fg
@@ -549,6 +558,7 @@ Item {
                                     wrapMode: Text.WrapAnywhere
                                 }
                                 Text {
+                                    textFormat: Text.PlainText
                                     width: parent.width
                                     text: root.cert ? "SHA-256 fingerprint:\n" + root.cert.fingerprint : ""
                                     color: root.fg
@@ -579,6 +589,7 @@ Item {
 
                         // ── Message line ────────────────────────────────
                         Text {
+                            textFormat: Text.PlainText
                             visible: root.message !== ""
                             width: parent.width
                             text: root.message
@@ -643,6 +654,7 @@ Item {
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 Text {
+                                    textFormat: Text.PlainText
                                     text: "Breaker Box " + (root.manifest && root.manifest.version ? root.manifest.version : "")
                                     color: root.fg
                                     font.family: root.fontFamily
@@ -650,6 +662,7 @@ Item {
                                     font.bold: true
                                 }
                                 Text {
+                                    textFormat: Text.PlainText
                                     text: "Status for small homelabs · Absolute-Candor · MIT"
                                     color: root.fg
                                     opacity: 0.5
@@ -660,6 +673,7 @@ Item {
                         }
 
                         Text {
+                            textFormat: Text.PlainText
                             visible: root.view === "list"
                             width: parent.width
                             text: "a  add  ·  Esc  close  ·  keys live in your keyring  ·  " + Monitor.configPathShort
@@ -719,6 +733,7 @@ Item {
             }
 
             Text {
+                textFormat: Text.PlainText
                 visible: root.atCap
                 width: parent.width
                 text: root.atTypeLimit
@@ -829,6 +844,7 @@ Item {
                 width: parent.width
                 height: Math.max(pinText.implicitHeight, unpin.implicitHeight)
                 Text {
+                    textFormat: Text.PlainText
                     id: pinText
                     anchors.left: parent.left
                     anchors.right: unpin.left
@@ -855,6 +871,7 @@ Item {
     }
 
     component FieldLabel: Text {
+        textFormat: Text.PlainText
         color: root.fg
         opacity: 0.75
         font.family: root.fontFamily
@@ -863,6 +880,7 @@ Item {
     }
 
     component FieldHint: Text {
+        textFormat: Text.PlainText
         visible: text !== ""
         width: parent ? parent.width : 0
         color: root.fg

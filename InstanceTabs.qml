@@ -48,6 +48,7 @@ Flow {
                 }
 
                 Text {
+                    textFormat: Text.PlainText
                     text: tab.modelData.label
                     color: root.foreground
                     opacity: tab.active ? 1.0 : 0.6

@@ -17,6 +17,7 @@ Column {
         spacing: Style.space(8)
 
         Text {
+            textFormat: Text.PlainText
             text: root.stat.label || ""
             color: root.contentForeground
             opacity: 0.6
@@ -27,6 +28,7 @@ Column {
         }
 
         Text {
+            textFormat: Text.PlainText
             text: root.stat.value || ""
             color: root.contentForeground
             font.family: Style.font.family
