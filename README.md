@@ -18,6 +18,11 @@ This project was written entirely by Claude, an AI model made by Anthropic,
 at the direction of Absolute-Candor, who specified the behavior, reviewed
 the result, and made every product and security decision described below.
 
+<p align="center">
+  <img src="docs/demo.gif" width="40%" alt="A container crashes: the dot turns red, the panel opens on the dead container, then everything goes green again">
+  <img src="docs/demo-add.gif" width="46%" alt="Adding a Proxmox server in the setup dialog: typed in, tested and saved in seconds">
+</p>
+
 ![Panel opened straight onto a crashed container, next to the setup dialog](preview.png)
 
 <p>
@@ -258,6 +263,12 @@ on `127.0.0.1:8787`, with a crashed Jellyfin to show off.
 swaps in `tests/demo/demo-config.json` with dummy keyring entries, takes
 and crops every screenshot plus `preview.png`, then puts your own config
 back and removes the dummy keys, even if something fails partway.
+
+**Demo clips** come from the same fake lab: `tests/demo/record-demo.sh`
+records a crash being caught, and `tests/demo/record-demo.sh setup` records
+adding a service. Each writes a GIF for this README and a 2× MP4 for
+posting (not committed). Run it with the target monitor showing only the
+wallpaper, because whatever is on screen there ends up in the clip.
 
 Layout: `core/Core.js` (pure logic: status, debounce, config validation
 and editing, curl argv), `adapters/` (one file per service, including the

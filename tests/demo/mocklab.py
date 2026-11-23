@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Fake homelab for screenshots. Serves made-up Proxmox, Portainer, Uptime
 Kuma (HTTP) and TrueNAS (WebSocket JSON-RPC) responses on 127.0.0.1.
-Nothing here is real data. Auth is accepted without checking."""
-import base64, hashlib, json, socketserver, struct, sys
+Nothing here is real data. Auth is accepted without checking.
+
+Jellyfin starts crashed. For a demo recording, start with --healthy and send
+SIGUSR1 to toggle it: `kill -USR1 <pid>` crashes it, again brings it back."""
+import base64, hashlib, json, signal, socketserver, struct, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 GB = 1024 ** 3
@@ -22,8 +25,10 @@ def c(name, project, state="running", status="Up 3 days"):
     labels = {"com.docker.compose.project": project} if project else {}
     return {"Names": ["/" + name], "State": state, "Status": status, "Labels": labels}
 
+JELLYFIN_DOWN = c("jellyfin", "media", "exited", "Exited (137) 4 minutes ago")
+JELLYFIN_UP = c("jellyfin", "media")
 CONTAINERS = [
-    c("jellyfin", "media", "exited", "Exited (137) 4 minutes ago"),
+    JELLYFIN_DOWN,
     c("sonarr", "media"), c("radarr", "media"), c("prowlarr", "media"), c("qbittorrent", "media"),
     c("immich-server", "immich"), c("immich-ml", "immich"), c("immich-redis", "immich"), c("immich-db", "immich"),
     c("paperless", "paperless"), c("paperless-redis", "paperless"), c("paperless-db", "paperless"),
@@ -40,8 +45,17 @@ KUMA_PAGE = {"config": {}, "incident": None, "maintenanceList": [], "publicGroup
 ]}
 KUMA_BEATS = {"heartbeatList": {str(i): [{"status": 1, "time": "2026-11-22 20:00:00", "msg": ""}] for i in range(1, 9)},
               "uptimeList": {"%d_24" % i: 1.0 for i in range(1, 9)}}
-KUMA_BEATS["heartbeatList"]["4"] = [{"status": 0, "time": "2026-11-22 20:00:00", "msg": "502 Bad Gateway"}]
+BEAT_DOWN = [{"status": 0, "time": "2026-11-22 20:00:00", "msg": "502 Bad Gateway"}]
+BEAT_UP = KUMA_BEATS["heartbeatList"]["4"]
 KUMA_BEATS["uptimeList"]["4_24"] = 0.93
+
+
+def set_jellyfin(down):
+    CONTAINERS[0] = JELLYFIN_DOWN if down else JELLYFIN_UP
+    KUMA_BEATS["heartbeatList"]["4"] = BEAT_DOWN if down else BEAT_UP
+
+
+set_jellyfin(True)
 
 TRUENAS = {
     "app.query": [{"name": n, "title": None, "state": "RUNNING"} for n in ("plex-backup", "syncthing", "minio")],
@@ -116,5 +130,9 @@ class S(socketserver.ThreadingMixIn, HTTPServer):
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8787
+    args = [a for a in sys.argv[1:] if a != "--healthy"]
+    port = int(args[0]) if args else 8787
+    if "--healthy" in sys.argv:
+        set_jellyfin(False)
+    signal.signal(signal.SIGUSR1, lambda *_: set_jellyfin(CONTAINERS[0] is JELLYFIN_UP))
     S(("127.0.0.1", port), H).serve_forever()
