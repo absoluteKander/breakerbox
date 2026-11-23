@@ -1,0 +1,10 @@
+BarWidget 1.0 BarWidget.qml
+Panel 1.0 Panel.qml
+ManageDialog 1.0 ManageDialog.qml
+InstanceView 1.0 InstanceView.qml
+InstanceTabs 1.0 InstanceTabs.qml
+GroupList 1.0 GroupList.qml
+PanelBox 1.0 PanelBox.qml
+StatRow 1.0 StatRow.qml
+BreakerMark 1.0 BreakerMark.qml
+singleton Monitor 1.0 Monitor.qml

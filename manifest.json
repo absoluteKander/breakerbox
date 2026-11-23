@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.absolutekander.breakerbox",
+  "name": "Breaker Box",
+  "version": "0.1.0",
+  "author": "Absolute-Candor",
+  "license": "MIT",
+  "description": "At-a-glance homelab status in your bar: Proxmox, Portainer, TrueNAS and more, with secrets in your keyring.",
+  "kinds": [
+    "bar-widget",
+    "overlay"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "overlay": "ManageDialog.qml"
+  },
+  "barWidget": {
+    "displayName": "Breaker Box",
+    "description": "One dot for your whole homelab; click for details",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

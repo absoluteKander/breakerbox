@@ -1,0 +1,33 @@
+{
+  "failThreshold": 2,
+  "instances": [
+    {
+      "type": "proxmox",
+      "name": "pve",
+      "url": "https://pve.lan:8006",
+      "tokenId": "monitor@pve!bar",
+      "node": "pve",
+      "secret": "keyring:pve"
+    },
+    {
+      "type": "portainer",
+      "name": "docker",
+      "url": "https://portainer.lan:9443",
+      "endpointId": 3,
+      "secret": "keyring:portainer"
+    },
+    {
+      "type": "truenas",
+      "name": "nas",
+      "url": "https://truenas.lan",
+      "secret": "pass:homelab/truenas",
+      "interval": 120
+    },
+    {
+      "type": "uptimekuma",
+      "name": "kuma",
+      "url": "https://kuma.lan",
+      "slug": "homelab"
+    }
+  ]
+}

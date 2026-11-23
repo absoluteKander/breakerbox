@@ -1,0 +1,9 @@
+{
+  "failThreshold": 2,
+  "instances": [
+    { "type": "proxmox", "name": "pve", "url": "http://127.0.0.1:8787", "tokenId": "monitor@pve!bar", "node": "pve", "secret": "keyring:demo-pve" },
+    { "type": "portainer", "name": "docker", "url": "http://127.0.0.1:8787", "endpointId": 1, "secret": "keyring:demo-docker" },
+    { "type": "truenas", "name": "nas", "url": "http://127.0.0.1:8787", "username": "truenas_admin", "secret": "keyring:demo-nas" },
+    { "type": "uptimekuma", "name": "kuma", "url": "http://127.0.0.1:8787", "slug": "homelab" }
+  ]
+}
