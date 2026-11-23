@@ -171,13 +171,14 @@ Item {
         root.cert = null
         var write = function() {
             root.say("Saving…", "")
-            Monitor.saveInstance(raw, secret, root.editingName, function(err) {
+            Monitor.saveInstance(raw, secret, root.editingName, function(err, warning) {
                 root.busy = false
                 if (err) { root.say(err, "error"); return }
                 root.clearSecret()
                 var name = raw.name
                 root.backToList(true)
-                root.say("Saved " + name + ". It will show up in the bar within a few seconds.", "ok")
+                if (warning) root.say("Saved " + name + ", but " + warning, "warn")
+                else root.say("Saved " + name + ". It will show up in the bar within a few seconds.", "ok")
             })
         }
         if (skipTest) return write()
@@ -218,11 +219,12 @@ Item {
     function remove(name) {
         if (root.busy || root.readOnly) return
         root.busy = true
-        Monitor.removeInstance(name, function(err) {
+        Monitor.removeInstance(name, function(err, warning) {
             root.busy = false
             root.confirmRemove = ""
             Qt.callLater(function() { scope.forceActiveFocus() })
             if (err) root.say(err, "error")
+            else if (warning) root.say("Removed " + name + " from the config, but " + warning, "warn")
             else root.say("Removed " + name + ".", "ok")
         })
     }

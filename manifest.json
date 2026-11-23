@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.absolutekander.breakerbox",
   "name": "Breaker Box",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Absolute-Candor",
   "license": "MIT",
   "description": "At-a-glance homelab status in your bar: Proxmox, Portainer, TrueNAS and more, with secrets in your keyring.",

@@ -487,6 +487,14 @@ function freshSecretRef(rawCfg, name) {
     return ref
 }
 
+// Where a newly typed key should be stored. Never over an entry the current
+// config already points at: until the new config is written, polls still use
+// the old URL, and they must keep getting the old key.
+function refForNewSecret(rawCfg, inst) {
+    if (inst.secret && !secretRefInUse(rawCfg, inst.secret)) return inst.secret
+    return freshSecretRef(rawCfg, inst.name)
+}
+
 // Form values (all strings) -> a raw instance. Number fields are converted;
 // empty optional fields are left out so defaults keep applying.
 function formToRaw(adapter, type, values) {

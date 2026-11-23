@@ -453,5 +453,15 @@ test("header line speaks breaker", () => {
     assert.strictEqual(Core.troubleLine([], {}), "Nothing wired up yet")
 })
 
+test("a new key never overwrites an entry the config still uses", () => {
+    const cfg = { instances: [{ name: "pve", secret: "keyring:pve" }, { name: "nas", secret: "keyring:shared" }] }
+    // editing pve with a new key: fresh entry, old one stays until the config moves
+    assert.strictEqual(Core.refForNewSecret(cfg, { name: "pve", secret: "keyring:pve" }), "keyring:pve-2")
+    // a brand-new instance with an unused ref keeps it
+    assert.strictEqual(Core.refForNewSecret(cfg, { name: "docker", secret: "keyring:docker" }), "keyring:docker")
+    // a ref shared with another instance is never overwritten
+    assert.strictEqual(Core.refForNewSecret(cfg, { name: "kuma", secret: "keyring:shared" }), "keyring:kuma")
+})
+
 console.log(passed + " passed, " + failed + " failed")
 process.exit(failed ? 1 : 0)

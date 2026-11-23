@@ -22,9 +22,12 @@ ipc() { qs ipc -p "$SHELL_PATH" call "$@"; }
 
 MOCK_PID=""
 HAD_CONF=0
+SWAPPED=0   # the config is only touched on exit once the demo one is in place
 cleanup() {
     [ -n "$MOCK_PID" ] && kill "$MOCK_PID" 2>/dev/null || true
-    if [ "$HAD_CONF" = 1 ]; then cp "$WORK/real-config.json" "$CONF"; chmod 600 "$CONF"; else rm -f "$CONF"; fi
+    if [ "$SWAPPED" = 1 ]; then
+        if [ "$HAD_CONF" = 1 ]; then cp "$WORK/real-config.json" "$CONF" && chmod 600 "$CONF"; else rm -f "$CONF"; fi
+    fi
     for r in demo-pve demo-docker demo-nas; do secret-tool clear service breakerbox ref "$r" 2>/dev/null || true; done
     ipc "$ID" close >/dev/null 2>&1 || true
     rm -rf "$WORK"
@@ -32,11 +35,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-[ -f "$CONF" ] && { cp "$CONF" "$WORK/real-config.json"; HAD_CONF=1; }
+if [ -f "$CONF" ]; then
+    cp "$CONF" "$WORK/real-config.json" && cmp -s "$CONF" "$WORK/real-config.json" \
+        || { echo "couldn't back up $CONF, not touching it" >&2; exit 1; }
+    HAD_CONF=1
+fi
 python3 -I "$ROOT/tests/demo/mocklab.py" 8787 & MOCK_PID=$!
 until curl -s -m 1 -o /dev/null http://127.0.0.1:8787/api/status-page/homelab; do sleep 0.3; done
 for r in demo-pve demo-docker demo-nas; do printf 'demo-not-a-real-key' | secret-tool store --label="Breaker Box: $r (demo)" service breakerbox ref "$r"; done
-mkdir -p "$(dirname "$CONF")"; cp "$ROOT/tests/demo/demo-config.json" "$CONF"; chmod 600 "$CONF"
+mkdir -p "$(dirname "$CONF")"; SWAPPED=1; cp "$ROOT/tests/demo/demo-config.json" "$CONF"; chmod 600 "$CONF"
 until ipc "$ID" status 2>/dev/null | grep -q "2 tripped"; do sleep 1; done
 sleep 1
 

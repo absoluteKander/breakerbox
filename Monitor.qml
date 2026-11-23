@@ -294,15 +294,31 @@ Singleton {
             var original = (root.rawConfig.instances || []).filter(function(x) { return x && x.name === originalName })[0]
             if (!original || original.secret !== r.secret) return cb("enter the " + (adapter.secretLabel || "secret").toLowerCase())
         }
+        if (!secretValue) return root._writeConfig(Core.upsertInstance(root.rawConfig, r, originalName), cb)
+        if (!Core.parseSecretRef(r.secret) || Core.parseSecretRef(r.secret).kind !== "keyring")
+            return cb("this service uses " + r.secret + " — update it with pass, then leave the key blank here")
+        // A new key goes into a fresh entry; the config is switched over to it
+        // and only then is the old entry removed. If anything fails midway, the
+        // old URL keeps the old key, never the new one.
+        var oldRef = r.secret
+        r.secret = Core.refForNewSecret(root.rawConfig, r)
         var cfg = Core.upsertInstance(root.rawConfig, r, originalName)
-        var write = function() { root._writeConfig(cfg, cb) }
-        if (!secretValue) return write()
-        var ref = Core.parseSecretRef(r.secret)
-        if (!ref || ref.kind !== "keyring") return cb("this service uses " + r.secret + " — update it with pass, then leave the key blank here")
-        root._storeSecret(ref.path, secretValue, function(err) {
+        var newPath = Core.parseSecretRef(r.secret).path
+        root._storeSecret(newPath, secretValue, function(err) {
             if (err) return cb(err)
-            delete root._secrets[r.secret]   // next poll reads the new one
-            write()
+            root._writeConfig(cfg, function(werr) {
+                if (werr) return root._clearSecret(newPath, function() { cb(werr) })
+                delete root._secrets[oldRef]
+                if (oldRef === r.secret || Core.secretRefInUse(cfg, oldRef)) return cb(null)
+                root._clearSecret(Core.parseSecretRef(oldRef).path, function(cerr) { cb(null, cerr) })
+            })
+        })
+    }
+
+    // cb(warning) — warning is null when the entry is gone.
+    function _clearSecret(path, cb) {
+        root._run(["secret-tool", "clear", "service", "breakerbox", "ref", path], "", function(code) {
+            cb(code === 0 ? null : "couldn't delete the old keyring entry " + path + " — run: breakerbox-secret delete " + path)
         })
     }
 
@@ -315,8 +331,9 @@ Singleton {
         root._writeConfig(cfg, function(err) {
             if (err) return cb(err)
             var ref = Core.parseSecretRef(victim.secret)
+            delete root._secrets[victim.secret]
             if (ref && ref.kind === "keyring" && !Core.secretRefInUse(cfg, victim.secret))
-                root._run(["secret-tool", "clear", "service", "breakerbox", "ref", ref.path], "", function() { cb(null) })
+                root._clearSecret(ref.path, function(warning) { cb(null, warning) })
             else cb(null)
         })
     }
