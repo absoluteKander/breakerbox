@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Fake homelab for screenshots and live tests. Serves made-up Proxmox,
-Portainer, Uptime Kuma, Healthchecks, Gatus (HTTP) and TrueNAS (WebSocket
+Portainer, Uptime Kuma, Healthchecks, Gatus, Xen Orchestra (HTTP) and TrueNAS (WebSocket
 JSON-RPC) responses on 127.0.0.1. Nothing here is real data. Auth is
-accepted without checking, except Healthchecks, which answers 401 unless
-it gets the demo key.
+accepted without checking, except Healthchecks and Xen Orchestra, which
+answer 401 unless they get the demo key.
 
 Jellyfin starts crashed. For a demo recording, start with --healthy and send
 SIGUSR1 to toggle it: `kill -USR1 <pid>` crashes it, again brings it back."""
@@ -67,10 +67,25 @@ GATUS_JELLYFIN_UP = GATUS[2]
 GATUS_JELLYFIN_DOWN = gatus("Jellyfin", "media", ok=False)
 
 
+def xo_vm(name, tags, state="Running"):
+    return {"name_label": name, "power_state": state, "tags": tags, "current_operations": {}, "href": "/rest/v0/vms/" + name}
+
+
+# Xen Orchestra REST (/rest/v0, ?fields= gives objects + href). Token as the
+# authenticationToken cookie, like the real thing.
+XO_HOSTS = [{"name_label": "xcp-01", "power_state": "Running", "enabled": True, "href": "/rest/v0/hosts/1"},
+            {"name_label": "xcp-02", "power_state": "Running", "enabled": True, "href": "/rest/v0/hosts/2"}]
+XO_VMS = [xo_vm("jellyfin", ["media"]), xo_vm("immich", ["media"]), xo_vm("pihole", ["network"]),
+          xo_vm("wireguard", ["network"]), xo_vm("nextcloud", ["cloud"]), xo_vm("debian-test", [])]
+XO_JELLYFIN_UP, XO_JELLYFIN_DOWN = XO_VMS[0], xo_vm("jellyfin", ["media"], "Halted")
+XO_COOKIE = "authenticationToken=demo-not-a-real-key"
+
+
 def set_jellyfin(down):
     CONTAINERS[0] = JELLYFIN_DOWN if down else JELLYFIN_UP
     KUMA_BEATS["heartbeatList"]["4"] = BEAT_DOWN if down else BEAT_UP
     GATUS[2] = GATUS_JELLYFIN_DOWN if down else GATUS_JELLYFIN_UP
+    XO_VMS[0] = XO_JELLYFIN_DOWN if down else XO_JELLYFIN_UP
 
 
 set_jellyfin(True)
@@ -94,6 +109,8 @@ HC_CHECKS = {"checks": [hc("Nightly backup", "up", "homelab backups"), hc("Offsi
 HC_KEY = "demo-not-a-real-key"
 
 ROUTES = {
+    "/rest/v0/hosts?fields=name_label,power_state,enabled": XO_HOSTS,
+    "/rest/v0/vms?fields=name_label,power_state,tags,current_operations": XO_VMS,
     "/api/v1/endpoints/statuses?pageSize=1": GATUS,
     "/api/v3/checks/?tag=homelab": HC_CHECKS,
     "/api2/json/nodes/pve/status": PVE_STATUS,
@@ -116,6 +133,8 @@ class H(BaseHTTPRequestHandler):
         body, code = ROUTES.get(self.path), 200
         if self.path.startswith("/api/v3/") and self.headers.get("X-Api-Key") != HC_KEY:
             body, code = {"error": "missing or invalid API key"}, 401   # what Healthchecks answers
+        if self.path.startswith("/rest/v0/") and self.headers.get("Cookie") != XO_COOKIE:
+            body, code = {"error": "authentication required"}, 401
         if body is None:
             body, code = {"error": "not found"}, 404
         data = json.dumps(body).encode()

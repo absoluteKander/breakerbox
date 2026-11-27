@@ -632,5 +632,41 @@ test("gatus: wrong shape is an error; no key, one per bar", () => {
     assert.strictEqual(c.instances.length, 1)
 })
 
+// ── xcp-ng (Xen Orchestra REST) ──────────────────────────────────────────────
+// Shaped like XO's own OpenAPI examples: ?fields= returns objects plus href.
+const xoP = { hosts: "/rest/v0/hosts?fields=name_label,power_state,enabled", vms: "/rest/v0/vms?fields=name_label,power_state,tags,current_operations" }
+const xoVm = (name, power_state, tags, ops) => ({ name_label: name, power_state, tags: tags || [], current_operations: ops || {}, href: "/rest/v0/vms/" + name })
+const xoHosts = [{ name_label: "xcp1", power_state: "Running", enabled: true, href: "/rest/v0/hosts/1" },
+                 { name_label: "xcp2", power_state: "Running", enabled: false, href: "/rest/v0/hosts/2" }]
+const xoVms = [xoVm("jellyfin", "Running", ["media"]), xoVm("immich", "Running", ["media"], { "OpaqueRef:1": "snapshot" }),
+               xoVm("arr", "Halted", ["media", "arr"]), xoVm("dns", "Running", ["network"]), xoVm("scratch", "Suspended")]
+test("xcp-ng: grouped by first tag, biggest first, untagged last; states like Proxmox", () => {
+    const { err, snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: xoVms })
+    assert.strictEqual(err, null)
+    same(snap.groups.map(g => g.name), ["media", "network", "Untagged"])
+    same(snap.groups[0].members.map(m => [m.status, m.detail]), [["ok", "running"], ["warn", "running (snapshot)"], ["error", "halted"]])
+    same(snap.groups[2].members[0], { name: "scratch", status: "warn", detail: "suspended" })
+    same(snap.summary, [{ label: "Hosts", value: "2 / 2" }, { label: "VMs running", value: "3 / 5" }])
+    same(snap.alerts, [])                                    // maintenance mode (enabled: false) is deliberate
+})
+test("xcp-ng: a host that isn't running is a red alert", () => {
+    const hosts = [xoHosts[0], { name_label: "xcp<b>2</b>", power_state: "Unknown" }, { name_label: "xcp3", power_state: "Halted" }]
+    const { snap } = poll("xcpng", {}, { [xoP.hosts]: hosts, [xoP.vms]: [] })
+    same(snap.alerts, [{ status: "error", text: "Host xcp2 is unreachable" }, { status: "error", text: "Host xcp3 is halted" }])
+    assert.strictEqual(Core.snapshotStatus(snap), S.ERROR)
+})
+test("xcp-ng: hosts failing fails the poll; VMs failing keeps previous", () => {
+    assert.strictEqual(poll("xcpng", {}, { [xoP.hosts]: "HTTP 401", [xoP.vms]: xoVms }).err, "HTTP 401")
+    assert(/doesn't look like/.test(poll("xcpng", {}, { [xoP.hosts]: { error: "x" }, [xoP.vms]: xoVms }).err))
+    const prev = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: xoVms }).snap
+    const { snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: "timed out" }, prev)
+    same(snap.groups, prev.groups); same(snap.summary, prev.summary)
+})
+test("xcp-ng: unknown VM state is red, never green; junk tolerated; token as a cookie", () => {
+    const { snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: [null, 3, { power_state: "Exploded", tags: "notarray", current_operations: "x" }, {}] })
+    same(snap.groups[0].members, [{ name: "unnamed VM", status: "error", detail: "exploded" }, { name: "unnamed VM", status: "error", detail: "unknown state" }])
+    same(A.xcpng.headers, ["Cookie: authenticationToken={secret}"])
+})
+
 console.log(passed + " passed, " + failed + " failed")
 process.exit(failed ? 1 : 0)

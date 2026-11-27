@@ -1,5 +1,6 @@
 .pragma library
 .import "proxmox.js" as Proxmox
+.import "xcpng.js" as XCPng
 .import "portainer.js" as Portainer
 .import "truenas.js" as TrueNAS
 .import "uptimekuma.js" as UptimeKuma
@@ -12,10 +13,11 @@
 // Order here is the order service tabs appear in.
 var all = {
     proxmox: Proxmox.adapter,
+    xcpng: XCPng.adapter,
     portainer: Portainer.adapter,
     truenas: TrueNAS.adapter,
     uptimekuma: UptimeKuma.adapter,
     healthchecks: Healthchecks.adapter,
     gatus: Gatus.adapter,
 }
-var order = ["proxmox", "portainer", "truenas", "uptimekuma", "healthchecks", "gatus"]
+var order = ["proxmox", "xcpng", "portainer", "truenas", "uptimekuma", "healthchecks", "gatus"]

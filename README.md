@@ -11,8 +11,8 @@
 something trips, click it and the panel opens on exactly what broke:
 which container, in which stack, on which box.
 
-It reads Proxmox, Portainer, TrueNAS, Uptime Kuma, Healthchecks and
-Gatus through their own APIs, so it knows *what* is down, not just that a port stopped answering.
+It reads Proxmox, XCP-ng (through Xen Orchestra), Portainer, TrueNAS,
+Uptime Kuma, Healthchecks and Gatus through their own APIs, so it knows *what* is down, not just that a port stopped answering.
 
 This project was written entirely by Claude, an AI model made by Anthropic,
 at the direction of Absolute-Candor, who specified the behavior, reviewed
@@ -47,7 +47,8 @@ the result, and made every product and security decision described below.
   dimmed with "last seen 3m ago".
 - **Status only.** It never tries to replace a service's own UI.
 
-Supported now: **Proxmox VE**, **Portainer**, **TrueNAS SCALE**,
+Supported now: **Proxmox VE**, **XCP-ng** (via Xen Orchestra),
+**Portainer**, **TrueNAS SCALE**,
 **Uptime Kuma**, **Healthchecks** and **Gatus**. Adding another is one JS file; see
 [docs/ADAPTERS.md](docs/ADAPTERS.md).
 
@@ -159,7 +160,7 @@ See [`config.example.json`](config.example.json).
 
 | field | |
 |---|---|
-| `type` | `proxmox`, `portainer`, `truenas`, `uptimekuma`, `healthchecks` or `gatus` |
+| `type` | `proxmox`, `xcpng`, `portainer`, `truenas`, `uptimekuma`, `healthchecks` or `gatus` |
 | `name` | your label; must be unique |
 | `url` | base URL, no API path |
 | `secret` | a **reference**: `keyring:<ref>` or `pass:<path>` (not for Uptime Kuma) |
@@ -167,10 +168,27 @@ See [`config.example.json`](config.example.json).
 | `interval` | optional: seconds between polls (min 10) |
 
 Per service: **Proxmox** needs `tokenId` (`user@realm!name`) and `node`;
-**Portainer** needs `endpointId`; **TrueNAS** needs `username` (the user
+**XCP-ng** needs only the Xen Orchestra `url`; **Portainer** needs
+`endpointId`; **TrueNAS** needs `username` (the user
 the API key belongs to);
 **Uptime Kuma** needs `slug` and no secret; **Healthchecks** takes an
 optional `tag`; **Gatus** needs only its `url`.
+
+### XCP-ng
+
+Reads Xen Orchestra's REST API (`/rest/v0`), so point it at your Xen
+Orchestra, not at a host. VMs are grouped by their first tag; a halted VM
+is red and a paused, suspended or busy one (snapshot, migration) amber,
+like Proxmox guests. A host that isn't running shows as an alert; a host
+in maintenance mode doesn't, since you put it there.
+
+The token goes in the `authenticationToken` cookie. Make it for a user
+whose role is a copy of the built-in **Read only** role (RBAC). On XOA,
+RBAC needs the Essential+ bundle or above; installs from the sources
+have it. Without it, the only option is an admin user's token, which can
+do anything, so think about whether you want that in your bar. Tokens
+expire (six months at most by default); an expired one shows as "auth
+rejected".
 
 ### TrueNAS
 
@@ -281,8 +299,8 @@ How fixes get tested, and what's treated as hostile input, is in
 
 **Screenshots** come from a fake lab, so no real addresses ever end up in
 an image. `tests/demo/mocklab.py` (standard-library Python) pretends to be
-Proxmox, Portainer, TrueNAS (including its WebSocket API), Uptime Kuma,
-Healthchecks and Gatus on `127.0.0.1:8787`, with a crashed Jellyfin to show off.
+Proxmox, Xen Orchestra, Portainer, TrueNAS (including its WebSocket API),
+Uptime Kuma, Healthchecks and Gatus on `127.0.0.1:8787`, with a crashed Jellyfin to show off.
 `tests/demo/screenshots.sh` does the whole thing: starts the fake lab,
 swaps in `tests/demo/demo-config.json` with dummy keyring entries, takes
 and crops every screenshot plus `preview.png`, then puts your own config

@@ -23,7 +23,7 @@ local listener received the request.
 ## What's treated as hostile
 
 - **Everything a server returns.** Names, statuses, alert text and error
-  bodies from Proxmox, Portainer, TrueNAS, Uptime Kuma, Healthchecks and Gatus. A box on a
+  bodies from Proxmox, Xen Orchestra, Portainer, TrueNAS, Uptime Kuma, Healthchecks and Gatus. A box on a
   homelab gets compromised, misconfigured, or answered by something else on
   the LAN. "It's my own server" is not evidence that its output is safe.
 - **The certificate a server offers.** Trust comes only from a pin you
@@ -114,6 +114,7 @@ bypass.
 
 ## Audit log
 
+- **2026-11-27, XCP-ng.** Added XCP-ng via Xen Orchestra's REST API: GETs only, token as the `authenticationToken` cookie (stdin, like every header). API checked against XO's own source (docs, OpenAPI examples, power-state enums), not memory. README tells users to use a copy of the "Read only" RBAC role and says plainly that free XOA lacks RBAC, leaving only an admin token. Unknown VM state is red. Tests mutation-checked; live against the fake XO (401 without the token): quiet, trip, recovery, wrong token trips; real config restored, no demo keys left.
 - **2026-11-27, Gatus.** Added Gatus (no key; reads only the newest result per endpoint). Response shape checked against Gatus's public demo, not just its docs. Failure text (errors, condition strings) goes through `Core.plainText`. Anything but `success === true` is red. Tests mutation-checked; live in the shell against the fake lab: quiet, trip, recovery; real config restored byte-identical.
 - **2026-11-27, later.** Class search for the 0.1.0 key-ordering finding after adding Healthchecks. The adapter itself never touches keys, and the shared save path still writes the new key, then the config, then clears the old one. Found the mirror case: a blank key plus a changed address reused the saved key on the new host. Fixed in `Monitor.testInstance`, `Monitor.saveInstance` and the dialog. A hand edit of `config.json` is still trusted as the user's choice.
 - **2026-11-27.** Added Healthchecks. It uses a read-only key only, whose responses omit ping/pause URLs. The fake lab checks the key and answers 401 like the real API. Tests: status mapping (unknown status is amber, never green), tag filter URL-encoded and not used as a group, wrong shape rejected; all mutation-checked. Live in the shell against the fake lab: good key all quiet, wrong key "auth rejected (HTTP 401)", unknown tag trips with its own message; real config restored byte-identical.
