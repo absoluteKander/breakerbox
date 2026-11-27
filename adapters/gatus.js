@@ -16,10 +16,19 @@
 
 var UNGROUPED = "Ungrouped"
 
+// Go's HTTP errors lead with the request ('Get "http://…": dial tcp …:
+// connect: connection refused'), which buries the reason past the panel's
+// edge. Keep the reason.
+function shortError(t) {
+    return t.replace(/^[A-Z][A-Za-z]* "[^"]*": /, "")
+        .replace(/^dial (tcp|udp)[46]?( \S+)?: (connect: )?/, "")
+        .replace(/^context deadline exceeded.*/, "timed out")
+}
+
 // Why a check failed, in Gatus's own words: its error, else the first
 // condition that didn't hold (e.g. "[STATUS] == 200").
 function failure(r) {
-    if (r.errors && r.errors.length) return Core.plainText(r.errors[0])
+    if (r.errors && r.errors.length) return shortError(Core.plainText(r.errors[0]))
     var bad = (r.conditionResults || []).filter(function(c) { return c && !c.success })[0]
     return bad ? Core.plainText(bad.condition) : "failing"
 }

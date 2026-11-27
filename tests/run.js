@@ -614,7 +614,7 @@ test("gatus: grouped by group, ungrouped last, newest result decides", () => {
     assert.strictEqual(err, null)
     same(snap.groups.map(g => g.name), ["media", "network", "Ungrouped"])
     same(snap.groups[1].members, [{ name: "Router", status: "ok", detail: "" }, { name: "DNS", status: "error", detail: "[CONNECTED] (false) == true" }])
-    same(snap.groups[0].members[0], { name: "Jellyfin", status: "error", detail: "Get \"http://10.0.0.5:8096\": dial tcp: connection refused" })
+    same(snap.groups[0].members[0], { name: "Jellyfin", status: "error", detail: "connection refused" })
     same(snap.groups[0].members[1], { name: "New one", status: "loading", detail: "no checks yet" })
     same(snap.summary, [{ label: "Up", value: "2 / 4" }])   // not-yet-checked doesn't count
     assert.strictEqual(Core.snapshotStatus(snap), S.ERROR)
@@ -666,6 +666,20 @@ test("xcp-ng: unknown VM state is red, never green; junk tolerated; token as a c
     const { snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: [null, 3, { power_state: "Exploded", tags: "notarray", current_operations: "x" }, {}] })
     same(snap.groups[0].members, [{ name: "unnamed VM", status: "error", detail: "exploded" }, { name: "unnamed VM", status: "error", detail: "unknown state" }])
     same(A.xcpng.headers, ["Cookie: authenticationToken={secret}"])
+})
+
+test("gatus: Go's request prefix is trimmed so the reason fits (real Gatus error strings)", () => {
+    const d = e => poll("gatus", {}, { "/api/v1/endpoints/statuses?pageSize=1": [{ key: "_x", results: [{ success: false, errors: [e] }] }] }).snap.groups[0].members[0].detail
+    assert.strictEqual(d("Get \"http://127.0.0.1:1/\": dial tcp 127.0.0.1:1: connect: connection refused"), "connection refused")
+    assert.strictEqual(d("Get \"https://x.lan/\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"), "timed out")
+    assert.strictEqual(d("Get \"https://x.lan/\": dial tcp: lookup x.lan on 127.0.0.53:53: no such host"), "lookup x.lan on 127.0.0.53:53: no such host")
+    assert.strictEqual(d("something Gatus says itself"), "something Gatus says itself")
+})
+test("a keyless service that asks for a login doesn't say 'check the secret'", () => {
+    const t = Core.keylessAuthError(A.gatus, 401)
+    assert(/HTTP 401/.test(t) && /Gatus/.test(t) && !/secret/.test(t), t)
+    const src = require("fs").readFileSync(path.join(__dirname, "..", "Monitor.qml"), "utf8")
+    assert(/res\.auth && !adapter\.secret \? Core\.keylessAuthError\(adapter, res\.status\) : res\.error/.test(src), "Monitor's ctx.get must use it")
 })
 
 console.log(passed + " passed, " + failed + " failed")

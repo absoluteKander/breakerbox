@@ -312,6 +312,13 @@ var CERT_EXITS = { 51: true, 60: true, 90: true }
 
 // -> { error, auth, status, data, exit? }. `auth` marks 401/403 so the caller can
 // drop its cached secret and look it up again next time.
+// A 401/403 from a service that takes no key: "check the secret" would send
+// you looking for a key field that doesn't exist.
+function keylessAuthError(adapter, status) {
+    var label = (adapter && adapter.label) || "this service"
+    return "it asks for a login (HTTP " + status + "), and " + label + " has no key setting here — let it answer without one, e.g. from your LAN"
+}
+
 function parseCurlResult(exitCode, stdout, stderr) {
     if (exitCode !== 0) {
         var msg = CURL_ERRORS[exitCode]

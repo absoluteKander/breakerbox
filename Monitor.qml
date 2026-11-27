@@ -178,7 +178,7 @@ Singleton {
                 root._curl(inst.url + path, headers, inst.pin, function(res) {
                     if (res.auth && inst.secret) delete root._secrets[inst.secret]
                     if (res.exit && Core.CERT_EXITS[res.exit]) certProblem = true
-                    getCb(res.error, res.data)
+                    getCb(res.auth && !adapter.secret ? Core.keylessAuthError(adapter, res.status) : res.error, res.data)
                 })
             },
             // One WebSocket session: log in with the adapter's rpcLogin, then
