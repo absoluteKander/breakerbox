@@ -2,7 +2,7 @@
 .import "../core/Core.js" as Core
 
 // XCP-ng, read through Xen Orchestra's REST API (/rest/v0). Plain GETs
-// with ?fields=, so each poll is two small requests.
+// with ?fields=, so each poll is three small requests.
 //
 // Token: in Xen Orchestra, your user → Authentication tokens → New token,
 // or `xo-cli create-token <xo-host> <user>`. Make it for a user whose role
@@ -50,6 +50,42 @@ function hostAlerts(hosts) {
     })
 }
 
+// When Xen Orchestra loses a pool's master, it takes a while to notice and
+// then gets it wrong in stages (seen on a real XO with the host unplugged):
+// for ~2 minutes the server still says "connected" with no error; then
+// "connected" *with* an error; then "connecting" with the error, by which
+// point the pool's hosts and VMs have dropped out of /hosts and /vms
+// entirely, which on its own would read as all quiet. So: any server with an
+// error is red, whatever its status; one that isn't connected is red; plain
+// "connecting" with no error (XO starting up) is amber.
+var ERRNO_WORDS = { EHOSTUNREACH: "host unreachable", ENETUNREACH: "network unreachable", ETIMEDOUT: "timed out",
+                    ECONNREFUSED: "connection refused", ECONNRESET: "connection reset", ENOTFOUND: "name not found" }
+
+// XO's `error` is an object (an AggregateError with a stack trace inside);
+// only ever show its code or message, never the rest.
+function errorText(e) {
+    if (!e) return ""
+    if (typeof e === "string") return Core.plainText(e)
+    if (typeof e !== "object") return "error"
+    var inner = e["0"] && typeof e["0"] === "object" ? e["0"] : e
+    var code = typeof inner.code === "string" ? inner.code : (typeof e.code === "string" ? e.code : "")
+    if (code) return ERRNO_WORDS[code] || Core.plainText(code)
+    return typeof e.message === "string" && e.message ? Core.plainText(e.message) : "error"
+}
+
+function serverAlerts(servers) {
+    var out = []
+    servers.forEach(function(sv) {
+        if (!sv || typeof sv !== "object") return
+        var name = Core.plainText(String(sv.label || sv.host || "a server"))
+        var err = errorText(sv.error)
+        if (err) out.push({ status: Core.STATUS.ERROR, text: "Xen Orchestra can't reach " + name + ": " + err })
+        else if (sv.status === "connecting") out.push({ status: Core.STATUS.WARN, text: "Xen Orchestra is connecting to " + name })
+        else if (sv.status !== "connected") out.push({ status: Core.STATUS.ERROR, text: "Xen Orchestra lost " + name + " (" + Core.plainText(String(sv.status || "no status")) + ")" })
+    })
+    return out
+}
+
 var adapter = {
     id: "xcpng",
     label: "XCP-ng",
@@ -66,17 +102,23 @@ var adapter = {
         Core.parallel(ctx, [
             "/rest/v0/hosts?fields=name_label,power_state,enabled",
             "/rest/v0/vms?fields=name_label,power_state,tags,current_operations",
+            "/rest/v0/servers?fields=label,status,error",
         ], function(r) {
             if (r[0].error) return done(r[0].error)
             var hosts = r[0].data
             if (!Array.isArray(hosts)) return done("that doesn't look like the Xen Orchestra REST API")
+            var servers = !r[2].error && Array.isArray(r[2].data) ? r[2].data : null
+            if (servers && servers.length === 0) return done("Xen Orchestra has no XCP-ng servers added yet")
+            var alerts = (servers ? serverAlerts(servers) : []).concat(hostAlerts(hosts))
+            // Can't see the server list (a role without it) and no hosts either: say we can't tell.
+            if (!servers && hosts.length === 0) alerts.push({ status: Core.STATUS.WARN, text: "No hosts visible, and this token can't read Xen Orchestra's server list to say why" })
             var vms = !r[1].error && Array.isArray(r[1].data) ? r[1].data : null
             var groups = vms ? vmGroups(vms) : (ctx.previous ? ctx.previous.groups : [])   // keep last known VMs on a partial failure
             var hostsUp = hosts.filter(function(h) { return h && h.power_state === "Running" }).length
             var summary = [{ label: "Hosts", value: hostsUp + " / " + hosts.length }]
             if (vms) summary.push({ label: "VMs running", value: vms.filter(function(v) { return v && v.power_state === "Running" }).length + " / " + vms.length })
             else if (ctx.previous && ctx.previous.summary[1]) summary.push(ctx.previous.summary[1])
-            done(null, { summary: summary, alerts: hostAlerts(hosts), groups: groups })
+            done(null, { summary: summary, alerts: alerts, groups: groups })
         })
     },
 }

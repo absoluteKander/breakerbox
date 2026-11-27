@@ -111,6 +111,7 @@ HC_KEY = "demo-not-a-real-key"
 ROUTES = {
     "/rest/v0/hosts?fields=name_label,power_state,enabled": XO_HOSTS,
     "/rest/v0/vms?fields=name_label,power_state,tags,current_operations": XO_VMS,
+    "/rest/v0/servers?fields=label,status,error": [{"label": "homelab", "status": "connected", "href": "/rest/v0/servers/1"}],
     "/api/v1/endpoints/statuses?pageSize=1": GATUS,
     "/api/v3/checks/?tag=homelab": HC_CHECKS,
     "/api2/json/nodes/pve/status": PVE_STATUS,

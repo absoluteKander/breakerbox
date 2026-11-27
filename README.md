@@ -180,15 +180,19 @@ Reads Xen Orchestra's REST API (`/rest/v0`), so point it at your Xen
 Orchestra, not at a host. VMs are grouped by their first tag; a halted VM
 is red and a paused, suspended or busy one (snapshot, migration) amber,
 like Proxmox guests. A host that isn't running shows as an alert; a host
-in maintenance mode doesn't, since you put it there.
+in maintenance mode doesn't, since you put it there. If Xen Orchestra
+loses a host, that's an alert too. Xen Orchestra itself takes a couple of
+minutes to notice a host going away (about 2½ in testing), and the bar
+can't know before it does.
 
 The token goes in the `authenticationToken` cookie. Make it for a user
 whose role is a copy of the built-in **Read only** role (RBAC). On XOA,
 RBAC needs the Essential+ bundle or above; installs from the sources
 have it. Without it, the only option is an admin user's token, which can
 do anything, so think about whether you want that in your bar. Tokens
-expire (six months at most by default); an expired one shows as "auth
-rejected".
+expire: one made with the default settings lasts **a month** (six months
+is the most Xen Orchestra allows by default), and an expired one shows as
+"auth rejected", so make a new one before then.
 
 ### TrueNAS
 

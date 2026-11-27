@@ -634,14 +634,15 @@ test("gatus: wrong shape is an error; no key, one per bar", () => {
 
 // ── xcp-ng (Xen Orchestra REST) ──────────────────────────────────────────────
 // Shaped like XO's own OpenAPI examples: ?fields= returns objects plus href.
-const xoP = { hosts: "/rest/v0/hosts?fields=name_label,power_state,enabled", vms: "/rest/v0/vms?fields=name_label,power_state,tags,current_operations" }
+const xoP = { hosts: "/rest/v0/hosts?fields=name_label,power_state,enabled", vms: "/rest/v0/vms?fields=name_label,power_state,tags,current_operations", servers: "/rest/v0/servers?fields=label,status,error" }
+const xoOk = [{ label: "lab", status: "connected", href: "/rest/v0/servers/1" }]
 const xoVm = (name, power_state, tags, ops) => ({ name_label: name, power_state, tags: tags || [], current_operations: ops || {}, href: "/rest/v0/vms/" + name })
 const xoHosts = [{ name_label: "xcp1", power_state: "Running", enabled: true, href: "/rest/v0/hosts/1" },
                  { name_label: "xcp2", power_state: "Running", enabled: false, href: "/rest/v0/hosts/2" }]
 const xoVms = [xoVm("jellyfin", "Running", ["media"]), xoVm("immich", "Running", ["media"], { "OpaqueRef:1": "snapshot" }),
                xoVm("arr", "Halted", ["media", "arr"]), xoVm("dns", "Running", ["network"]), xoVm("scratch", "Suspended")]
 test("xcp-ng: grouped by first tag, biggest first, untagged last; states like Proxmox", () => {
-    const { err, snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: xoVms })
+    const { err, snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: xoVms, [xoP.servers]: xoOk })
     assert.strictEqual(err, null)
     same(snap.groups.map(g => g.name), ["media", "network", "Untagged"])
     same(snap.groups[0].members.map(m => [m.status, m.detail]), [["ok", "running"], ["warn", "running (snapshot)"], ["error", "halted"]])
@@ -651,19 +652,19 @@ test("xcp-ng: grouped by first tag, biggest first, untagged last; states like Pr
 })
 test("xcp-ng: a host that isn't running is a red alert", () => {
     const hosts = [xoHosts[0], { name_label: "xcp<b>2</b>", power_state: "Unknown" }, { name_label: "xcp3", power_state: "Halted" }]
-    const { snap } = poll("xcpng", {}, { [xoP.hosts]: hosts, [xoP.vms]: [] })
+    const { snap } = poll("xcpng", {}, { [xoP.hosts]: hosts, [xoP.vms]: [], [xoP.servers]: xoOk })
     same(snap.alerts, [{ status: "error", text: "Host xcp2 is unreachable" }, { status: "error", text: "Host xcp3 is halted" }])
     assert.strictEqual(Core.snapshotStatus(snap), S.ERROR)
 })
 test("xcp-ng: hosts failing fails the poll; VMs failing keeps previous", () => {
     assert.strictEqual(poll("xcpng", {}, { [xoP.hosts]: "HTTP 401", [xoP.vms]: xoVms }).err, "HTTP 401")
     assert(/doesn't look like/.test(poll("xcpng", {}, { [xoP.hosts]: { error: "x" }, [xoP.vms]: xoVms }).err))
-    const prev = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: xoVms }).snap
-    const { snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: "timed out" }, prev)
+    const prev = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: xoVms, [xoP.servers]: xoOk }).snap
+    const { snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: "timed out", [xoP.servers]: xoOk }, prev)
     same(snap.groups, prev.groups); same(snap.summary, prev.summary)
 })
 test("xcp-ng: unknown VM state is red, never green; junk tolerated; token as a cookie", () => {
-    const { snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: [null, 3, { power_state: "Exploded", tags: "notarray", current_operations: "x" }, {}] })
+    const { snap } = poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.servers]: xoOk, [xoP.vms]: [null, 3, { power_state: "Exploded", tags: "notarray", current_operations: "x" }, {}] })
     same(snap.groups[0].members, [{ name: "unnamed VM", status: "error", detail: "exploded" }, { name: "unnamed VM", status: "error", detail: "unknown state" }])
     same(A.xcpng.headers, ["Cookie: authenticationToken={secret}"])
 })
@@ -680,6 +681,38 @@ test("a keyless service that asks for a login doesn't say 'check the secret'", (
     assert(/HTTP 401/.test(t) && /Gatus/.test(t) && !/secret/.test(t), t)
     const src = require("fs").readFileSync(path.join(__dirname, "..", "Monitor.qml"), "utf8")
     assert(/res\.auth && !adapter\.secret \? Core\.keylessAuthError\(adapter, res\.status\) : res\.error/.test(src), "Monitor's ctx.get must use it")
+})
+
+test("xcp-ng: XO losing a pool is red at every stage XO goes through (seen on a real XO)", () => {
+    // Real XO error object while the host was unplugged (address scrubbed).
+    const xoErr = { 0: { errno: -113, code: "EHOSTUNREACH", syscall: "connect", address: "192.0.2.10", port: 443 }, length: 1,
+                    message: "aggregate error", name: "AggregateError", stack: "AggregateError: aggregate error\n    at SomePromiseArray._checkOutcome (/etc/xen-orchestra/node_modules/bluebird/js/release/some.js:82:17)" }
+    const al = servers => poll("xcpng", {}, { [xoP.hosts]: [], [xoP.vms]: [], [xoP.servers]: servers }).snap.alerts
+    // stage 2: still "connected", but with an error
+    same(al([{ label: "lab", status: "connected", error: xoErr }]), [{ status: "error", text: "Xen Orchestra can't reach lab: host unreachable" }])
+    // stage 3: "connecting" with the error; hosts and VMs gone
+    same(al([{ label: "lab", status: "connecting", error: xoErr }]), [{ status: "error", text: "Xen Orchestra can't reach lab: host unreachable" }])
+    // explicitly disconnected (an admin action)
+    same(al([{ label: "lab", status: "disconnected" }]), [{ status: "error", text: "Xen Orchestra lost lab (disconnected)" }])
+    // starting up: connecting, no error
+    same(al([{ label: "b", status: "connecting" }]), [{ status: "warn", text: "Xen Orchestra is connecting to b" }])
+    // the stack trace and internal paths never reach the panel
+    assert(!/node_modules|stack|192\.0\.2/.test(JSON.stringify(al([{ label: "lab", status: "connected", error: xoErr }]))))
+})
+test("xcp-ng: server error text is bounded and plain, whatever XO puts there", () => {
+    const al = e => poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: [], [xoP.servers]: [{ label: "x<i>y</i>", status: "connected", error: e }] }).snap.alerts
+    same(al("Plain <b>text</b>"), [{ status: "error", text: "Xen Orchestra can't reach xy: Plain text" }])
+    same(al({ code: "ESOMETHING" }), [{ status: "error", text: "Xen Orchestra can't reach xy: ESOMETHING" }])
+    same(al({ message: "bad" }), [{ status: "error", text: "Xen Orchestra can't reach xy: bad" }])
+    same(al({ weird: true }), [{ status: "error", text: "Xen Orchestra can't reach xy: error" }])
+    same(al(42), [{ status: "error", text: "Xen Orchestra can't reach xy: error" }])
+    same(al(null), [])
+})
+test("xcp-ng: no servers added is a setup error; unreadable server list with no hosts is amber", () => {
+    assert(/no XCP-ng servers added/.test(poll("xcpng", {}, { [xoP.hosts]: [], [xoP.vms]: [], [xoP.servers]: [] }).err))
+    const { snap } = poll("xcpng", {}, { [xoP.hosts]: [], [xoP.vms]: [], [xoP.servers]: "HTTP 403" })
+    assert.strictEqual(snap.alerts.length, 1); assert.strictEqual(snap.alerts[0].status, "warn")
+    same(poll("xcpng", {}, { [xoP.hosts]: xoHosts, [xoP.vms]: xoVms, [xoP.servers]: "HTTP 403" }).snap.alerts, [])   // hosts visible: fine without it
 })
 
 console.log(passed + " passed, " + failed + " failed")
