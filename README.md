@@ -11,8 +11,8 @@
 something trips, click it and the panel opens on exactly what broke:
 which container, in which stack, on which box.
 
-It reads Proxmox, Portainer, TrueNAS and Uptime Kuma through their own
-APIs, so it knows *what* is down, not just that a port stopped answering.
+It reads Proxmox, Portainer, TrueNAS, Uptime Kuma and Healthchecks
+through their own APIs, so it knows *what* is down, not just that a port stopped answering.
 
 This project was written entirely by Claude, an AI model made by Anthropic,
 at the direction of Absolute-Candor, who specified the behavior, reviewed
@@ -47,8 +47,8 @@ the result, and made every product and security decision described below.
   dimmed with "last seen 3m ago".
 - **Status only.** It never tries to replace a service's own UI.
 
-Supported now: **Proxmox VE**, **Portainer**, **TrueNAS SCALE** and
-**Uptime Kuma**. Adding another is one JS file; see
+Supported now: **Proxmox VE**, **Portainer**, **TrueNAS SCALE**,
+**Uptime Kuma** and **Healthchecks**. Adding another is one JS file; see
 [docs/ADAPTERS.md](docs/ADAPTERS.md).
 
 ## Built for small labs
@@ -159,7 +159,7 @@ See [`config.example.json`](config.example.json).
 
 | field | |
 |---|---|
-| `type` | `proxmox`, `portainer`, `truenas` or `uptimekuma` |
+| `type` | `proxmox`, `portainer`, `truenas`, `uptimekuma` or `healthchecks` |
 | `name` | your label; must be unique |
 | `url` | base URL, no API path |
 | `secret` | a **reference**: `keyring:<ref>` or `pass:<path>` (not for Uptime Kuma) |
@@ -169,7 +169,8 @@ See [`config.example.json`](config.example.json).
 Per service: **Proxmox** needs `tokenId` (`user@realm!name`) and `node`;
 **Portainer** needs `endpointId`; **TrueNAS** needs `username` (the user
 the API key belongs to);
-**Uptime Kuma** needs `slug` and no secret.
+**Uptime Kuma** needs `slug` and no secret; **Healthchecks** takes an
+optional `tag`.
 
 ### TrueNAS
 
@@ -190,6 +191,17 @@ you want at a glance, grouped how you like, and give the plugin its name
 (the part after `/status/`). Each group on that page becomes one row.
 Status pages are public, so no API key is needed. Monitors in maintenance
 show grey and never turn anything amber or red.
+
+### Healthchecks
+
+For cron jobs and backups that ping [Healthchecks](https://healthchecks.io)
+(the hosted service or your own instance). Use a **read-only** API key
+(Project Settings → API Access). That's all it needs, and a read-only key
+can't ping, pause or change anything; its responses don't even include the
+ping URLs. One entry here is one Healthchecks project. Set `tag` to show
+only the checks with that tag. Checks are grouped by their first tag. A
+late check shows amber and a down one red; paused checks, and new ones that
+haven't pinged yet, show grey.
 
 Problems in the file are shown at the top of the panel, one per entry. A
 bad entry is skipped and the rest still load. If the file isn't valid
@@ -257,7 +269,8 @@ How fixes get tested, and what's treated as hostile input, is in
 
 **Screenshots** come from a fake lab, so no real addresses ever end up in
 an image. `tests/demo/mocklab.py` (standard-library Python) pretends to be
-Proxmox, Portainer, TrueNAS (including its WebSocket API) and Uptime Kuma
+Proxmox, Portainer, TrueNAS (including its WebSocket API), Uptime Kuma and
+Healthchecks
 on `127.0.0.1:8787`, with a crashed Jellyfin to show off.
 `tests/demo/screenshots.sh` does the whole thing: starts the fake lab,
 swaps in `tests/demo/demo-config.json` with dummy keyring entries, takes

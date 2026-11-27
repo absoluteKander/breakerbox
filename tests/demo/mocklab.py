@@ -64,7 +64,19 @@ TRUENAS = {
     "alert.list": [],
 }
 
+def hc(name, status, tags, ago_h=1):
+    return {"name": name, "slug": name.lower().replace(" ", "-"), "tags": tags, "desc": "", "grace": 3600, "n_pings": 40,
+            "status": status, "started": False, "last_ping": "2026-11-22T%02d:00:00+00:00" % (20 - ago_h), "next_ping": None,
+            "manual_resume": False, "methods": "", "timeout": 86400, "unique_key": hashlib.sha1(name.encode()).hexdigest()}
+
+
+# What a READ-ONLY key sees: unique_key, no uuid or ping URLs.
+HC_CHECKS = {"checks": [hc("Nightly backup", "up", "homelab backups"), hc("Offsite sync", "up", "homelab backups", 3),
+                        hc("Cert renewal", "up", "homelab web", 9), hc("ZFS scrub", "paused", "homelab nas", 30)]}
+HC_KEY = "demo-not-a-real-key"
+
 ROUTES = {
+    "/api/v3/checks/?tag=homelab": HC_CHECKS,
     "/api2/json/nodes/pve/status": PVE_STATUS,
     "/api2/json/cluster/resources?type=vm": PVE_GUESTS,
     "/api/endpoints/1/docker/containers/json?all=true": CONTAINERS,
@@ -82,9 +94,13 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/current" and self.headers.get("Upgrade", "").lower() == "websocket":
             return self.websocket()
-        body = ROUTES.get(self.path)
-        data = json.dumps(body if body is not None else {"error": "not found"}).encode()
-        self.send_response(200 if body is not None else 404)
+        body, code = ROUTES.get(self.path), 200
+        if self.path.startswith("/api/v3/") and self.headers.get("X-Api-Key") != HC_KEY:
+            body, code = {"error": "missing or invalid API key"}, 401   # what Healthchecks answers
+        if body is None:
+            body, code = {"error": "not found"}, 404
+        data = json.dumps(body).encode()
+        self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()

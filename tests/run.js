@@ -522,5 +522,46 @@ test("plainText fails safe on hostile input", () => {
     assert.strictEqual(Core.plainText("<script>alert(1)</script>ok"), "alert(1)ok")
 })
 
+// ── healthchecks ─────────────────────────────────────────────────────────────
+// Shaped like a READ-ONLY key's response: unique_key, no uuid or ping URLs.
+const hcCheck = (name, status, tags, extra) => Object.assign({ name, slug: name.toLowerCase(), tags, desc: "", grace: 3600,
+    n_pings: 5, status, started: false, last_ping: "2026-01-01T00:00:00+00:00", next_ping: null, manual_resume: false,
+    methods: "", timeout: 86400, unique_key: "a6c7b0a8a66bed0df66abfdab3c77736861703ee" }, extra || {})
+const hcChecks = { checks: [
+    hcCheck("Backups", "up", "homelab nas"),
+    hcCheck("Offsite", "down", "homelab nas"),
+    hcCheck("Certbot", "grace", "homelab web"),
+    hcCheck("Old job", "paused", "homelab web"),
+    hcCheck("Brand new", "new", "", { last_ping: null }),
+    hcCheck("Scrub", "up", "nas", { started: true }),
+] }
+test("healthchecks: statuses mapped, grouped by first tag, untagged last", () => {
+    const { err, snap } = poll("healthchecks", {}, { "/api/v3/checks/": hcChecks })
+    assert.strictEqual(err, null)
+    same(snap.groups.map(g => g.name), ["homelab", "nas", "Untagged"])
+    same(snap.groups[0].members.map(m => m.status), ["ok", "error", "warn", "paused"])
+    assert(/^down · last ping/.test(snap.groups[0].members[1].detail))
+    assert(/^late/.test(snap.groups[0].members[2].detail))
+    assert.strictEqual(snap.groups[1].members[0].detail, "running now")
+    same(snap.groups[2].members[0], { name: "Brand new", status: "paused", detail: "waiting for its first ping" })
+    same(snap.summary, [{ label: "Up", value: "2 / 4" }])   // paused + never-pinged don't count
+    assert.strictEqual(Core.snapshotStatus(snap), S.ERROR)
+})
+test("healthchecks: a tag filters server-side and isn't used as a group", () => {
+    const { snap } = poll("healthchecks", { tag: "homelab" }, { "/api/v3/checks/?tag=homelab": { checks: hcChecks.checks.slice(0, 4) } })
+    same(snap.groups.map(g => g.name), ["nas", "web"])
+    const { err } = poll("healthchecks", { tag: "a&b" }, { "/api/v3/checks/?tag=a%26b": { checks: [] } })
+    assert(/no checks tagged "a&b"/.test(err))
+})
+test("healthchecks: paused and new never colour anything", () => {
+    const { snap } = poll("healthchecks", {}, { "/api/v3/checks/": { checks: [hcCheck("A", "up", ""), hcCheck("B", "paused", ""), hcCheck("C", "new", "")] } })
+    assert.strictEqual(Core.snapshotStatus(snap), S.OK)
+})
+test("healthchecks: wrong shape is an error; unknown status is amber, never green", () => {
+    for (const bad of [[], { checks: "x" }, null]) assert(/doesn't look like/.test(poll("healthchecks", {}, { "/api/v3/checks/": bad }).err))
+    const { snap } = poll("healthchecks", {}, { "/api/v3/checks/": { checks: [{ status: "exploded", tags: 42, last_ping: "garbage" }] } })
+    same(snap.groups[0].members[0], { name: "unnamed check", status: "warn", detail: "" })
+})
+
 console.log(passed + " passed, " + failed + " failed")
 process.exit(failed ? 1 : 0)

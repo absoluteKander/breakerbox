@@ -23,7 +23,7 @@ local listener received the request.
 ## What's treated as hostile
 
 - **Everything a server returns.** Names, statuses, alert text and error
-  bodies from Proxmox, Portainer, TrueNAS and Uptime Kuma. A box on a
+  bodies from Proxmox, Portainer, TrueNAS, Uptime Kuma and Healthchecks. A box on a
   homelab gets compromised, misconfigured, or answered by something else on
   the LAN. "It's my own server" is not evidence that its output is safe.
 - **The certificate a server offers.** Trust comes only from a pin you
@@ -106,6 +106,7 @@ bypass.
 
 ## Audit log
 
+- **2026-11-27.** Added Healthchecks. It uses a read-only key only, whose responses omit ping/pause URLs. The fake lab checks the key and answers 401 like the real API. Tests: status mapping (unknown status is amber, never green), tag filter URL-encoded and not used as a group, wrong shape rejected; all mutation-checked. Live in the shell against the fake lab: good key all quiet, wrong key "auth rejected (HTTP 401)", unknown tag trips with its own message; real config restored byte-identical.
 - **2026-11-23, later.** A real TrueNAS alert showed raw `<br>`/`<a href>` tags in the panel (safe, but unreadable). Added `Core.plainText` for TrueNAS alerts and Kuma incident titles, and capped alert text at four lines. Verified live against the real alert.
 - **2026-11-23 (0.1.1).** Marketplace review of 0.1.0 found: key
   overwritten before the config write; `pin` used two TLS connections;
