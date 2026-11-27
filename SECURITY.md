@@ -43,6 +43,7 @@ Regression tests live in `tests/run.js`. The ones guarding past bugs:
 |---|---|
 | `a new key never overwrites an entry the config still uses` | Editing a service with a new key used to overwrite the keyring entry before the config was written, so a failed write sent the new key to the old URL (review of 0.1.0). |
 | `every Text element renders plain text, never HTML` | Server-supplied names were rendered as HTML, and `<img src>` made the shell fetch a URL. A source tripwire: every `Text` block must say `textFormat: Text.PlainText`. It also fails if it stops finding `Text` elements. |
+| `saved key is reused only for a server it already goes to`, `origin: …`, `both dialog paths check the address before using a saved key` | The mirror of the 0.1.0 finding: editing a service's address and leaving the key blank sent the *saved* key to the *new* host (in the Save test, then every poll). A typo or a moved service handed the key to the wrong server. Now a changed scheme, host or port requires the key again. Mutation-checked. |
 | `renderHeaders` CR/LF tests | Header injection from a config value. |
 | `server HTML becomes readable plain text, never markup`, `plainText fails safe on hostile input` | TrueNAS alert text carries HTML; after the PlainText fix it showed raw tags. `Core.plainText` strips tags *before* decoding entities (so `&lt;img&gt;` stays visible text), drops bidi overrides and control characters, and is bounded in length and time. Mutation-checked, including swapping the strip/decode order. |
 
@@ -52,6 +53,11 @@ are checked live (below) and the result is recorded here:
 - **Key rotation, failure path:** config folder made read-only mid-save on
   demo data. The dialog showed the error, the config still pointed at the
   old entry with the old key, and the new entry was deleted.
+- **Address change with a blank key:** in the real dialog, against the
+  fake lab plus a logging listener as the "new" server. With the key left
+  blank: the error shows, no "Save anyway", zero requests reached the new
+  server, config unchanged. With the key retyped: it saved to a fresh
+  keyring entry and the old one was removed.
 - **`breakerbox-secret pin`:** run against a local self-signed server; the
   printed fingerprint and pin both match the certificate file.
 - **Hostile names:** `<img src=…><b>…</b>` as a compose project and a Kuma
@@ -73,6 +79,8 @@ fixed. The 0.1.0 review found three; the search that followed found the
 HTML-rendering bug, which nobody had reported.
 
 - Wrong order of writes → every place that writes more than one thing.
+- A key sent somewhere it wasn't saved for → every path that uses a saved
+  key (test, save, poll, redirects).
 - Two sources for one trust decision → every place a pin or fingerprint is
   derived.
 - A failure reported as success → every `_run(...)` callback must read its
@@ -106,6 +114,7 @@ bypass.
 
 ## Audit log
 
+- **2026-11-27, later.** Class search for the 0.1.0 key-ordering finding after adding Healthchecks. The adapter itself never touches keys, and the shared save path still writes the new key, then the config, then clears the old one. Found the mirror case: a blank key plus a changed address reused the saved key on the new host. Fixed in `Monitor.testInstance`, `Monitor.saveInstance` and the dialog. A hand edit of `config.json` is still trusted as the user's choice.
 - **2026-11-27.** Added Healthchecks. It uses a read-only key only, whose responses omit ping/pause URLs. The fake lab checks the key and answers 401 like the real API. Tests: status mapping (unknown status is amber, never green), tag filter URL-encoded and not used as a group, wrong shape rejected; all mutation-checked. Live in the shell against the fake lab: good key all quiet, wrong key "auth rejected (HTTP 401)", unknown tag trips with its own message; real config restored byte-identical.
 - **2026-11-23, later.** A real TrueNAS alert showed raw `<br>`/`<a href>` tags in the panel (safe, but unreadable). Added `Core.plainText` for TrueNAS alerts and Kuma incident titles, and capped alert text at four lines. Verified live against the real alert.
 - **2026-11-23 (0.1.1).** Marketplace review of 0.1.0 found: key

@@ -227,7 +227,9 @@ for you.
 How secrets are handled: they're looked up when first needed and again
 after a 401/403, kept only in the shell's memory, and passed to curl over
 stdin, so they never appear in a process list, a file or a log. Redirects
-are never followed, so a secret is never sent to a second host. One
+are never followed, so a secret is never sent to a second host, and if
+you change a service's address in the dialog you have to enter its key
+again. One
 limitation: the shell's JavaScript engine can't wipe strings, so a secret
 stays in memory until the shell's garbage collector frees it.
 

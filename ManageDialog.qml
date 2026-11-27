@@ -164,7 +164,9 @@ Item {
         var problems = Core.validateCandidate(Monitor.rawConfig, probe, root.editingName, Monitor.adapters)
         if (!problems.length && root.adapter.secret && !secret && !raw.secret)
             problems = ["enter the " + root.adapter.secretLabel.toLowerCase()]
-        if (problems.length) { root.say(problems[0], "error"); return }
+        if (!problems.length && root.adapter.secret && !secret && raw.secret && !Core.savedKeyAllowedFor(Monitor.rawConfig, raw.secret, raw.url))
+            problems = [Core.RETYPE_KEY_TEXT]   // Monitor checks this too; here it just skips the pointless test + "Save anyway"
+        if (problems.length) { root.offerSaveAnyway = false; root.say(problems[0], "error"); return }
 
         root.busy = true
         root.certProblem = false
@@ -821,7 +823,7 @@ Item {
             FieldHint {
                 visible: !!root.adapter && !!root.adapter.secret
                 text: root.adapter && root.adapter.secret
-                    ? (root.adapter.secretHint || "") + " Stored in your system keyring, never in the config file."
+                    ? (root.adapter.secretHint || "").replace(/([^.!?])$/, "$1.") + " Stored in your system keyring, never in the config file."
                     : ""
             }
 

@@ -563,5 +563,39 @@ test("healthchecks: wrong shape is an error; unknown status is amber, never gree
     same(snap.groups[0].members[0], { name: "unnamed check", status: "warn", detail: "" })
 })
 
+// ── a saved key never follows an address change ──────────────────────────────
+// Mirror of the 0.1.0 review finding: editing a service's address and leaving
+// the key blank must not send the saved key to the new host.
+test("origin: scheme + host + port, default ports dropped, junk is null", () => {
+    assert.strictEqual(Core.origin("https://PVE.lan:443/api"), "https://pve.lan")
+    assert.strictEqual(Core.origin("http://h:80"), "http://h")
+    assert.strictEqual(Core.origin("https://h:8006/x?y#z"), "https://h:8006")
+    assert.notStrictEqual(Core.origin("http://h"), Core.origin("https://h"))
+    assert.notStrictEqual(Core.origin("https://h@evil.lan"), Core.origin("https://h"))
+    for (const bad of ["", null, "ftp://h", "h.lan", "https://"]) assert.strictEqual(Core.origin(bad), null, String(bad))
+})
+test("saved key is reused only for a server it already goes to", () => {
+    const cfg = { instances: [
+        { type: "healthchecks", name: "hc", url: "https://healthchecks.io", secret: "keyring:hc" },
+        { type: "proxmox", name: "pve", url: "https://pve.lan:8006", secret: "keyring:pve" },
+    ] }
+    const ok = (ref, url) => Core.savedKeyAllowedFor(cfg, ref, url)
+    assert(ok("keyring:hc", "https://healthchecks.io/"))          // path-only change is fine
+    assert(ok("keyring:pve", "https://PVE.lan:8006"))
+    assert(!ok("keyring:hc", "https://hc.mylab.lan"))              // moved to a self-hosted box
+    assert(!ok("keyring:pve", "https://pve.lam:8006"))             // typo
+    assert(!ok("keyring:pve", "https://pve.lan:8007"))             // other port
+    assert(!ok("keyring:pve", "http://pve.lan:8006"))              // downgrade to plain http
+    assert(!ok("keyring:pve", "https://healthchecks.io"))          // another instance's server
+    assert(!ok("keyring:pve", "not a url"))
+    assert(!ok("", "https://pve.lan:8006"))
+})
+test("both dialog paths check the address before using a saved key", () => {
+    const src = require("fs").readFileSync(path.join(__dirname, "..", "Monitor.qml"), "utf8")
+    const body = name => src.slice(src.indexOf("function " + name + "("), src.indexOf("\n    }\n", src.indexOf("function " + name + "(")))
+    assert(/savedKeyAllowedFor\(root\.rawConfig, raw\.secret, raw\.url\)[\s\S]*_withSecret/.test(body("testInstance")), "testInstance")
+    assert(/savedKeyAllowedFor\(root\.rawConfig, r\.secret, r\.url\)[\s\S]*if \(!secretValue\) return root\._writeConfig/.test(body("saveInstance")), "saveInstance")
+})
+
 console.log(passed + " passed, " + failed + " failed")
 process.exit(failed ? 1 : 0)

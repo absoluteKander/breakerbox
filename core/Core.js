@@ -593,6 +593,28 @@ function secretRefInUse(rawCfg, ref) {
     return ((rawCfg && rawCfg.instances) || []).some(function(x) { return x && x.secret === ref })
 }
 
+// "https://Host:443/x" -> "https://host": scheme + host + port, default port
+// dropped. Anything unparseable is null, which callers treat as "different".
+function origin(url) {
+    var m = /^(https?):\/\/([^\/?#\s]+)/i.exec(String(url || ""))
+    if (!m) return null
+    var scheme = m[1].toLowerCase(), auth = m[2].toLowerCase()
+    var dflt = scheme === "https" ? ":443" : ":80"
+    if (auth.slice(-dflt.length) === dflt) auth = auth.slice(0, -dflt.length)
+    return scheme + "://" + auth
+}
+
+// A saved key may only be reused for a server it was already sent to: some
+// instance using `ref` must have the same origin as `url`. Editing a
+// service's address without retyping its key would otherwise send the old
+// key to the new host (a typo, or a different server altogether).
+function savedKeyAllowedFor(rawCfg, ref, url) {
+    var o = origin(url)
+    if (!o || !ref) return false
+    return ((rawCfg && rawCfg.instances) || []).some(function(x) { return x && x.secret === ref && origin(x.url) === o })
+}
+var RETYPE_KEY_TEXT = "the address changed — enter the key again, so the saved one is never sent to a different server"
+
 // https://host[:port]/… -> { host, port } for fetching a certificate.
 function hostPort(url) {
     var m = /^https:\/\/(\[[0-9a-fA-F:]+\]|[A-Za-z0-9.-]+)(?::(\d{1,5}))?(?:\/|$)/.exec(String(url || ""))

@@ -274,6 +274,7 @@ Singleton {
         if (secretValue) return go(secretValue)
         if (!Adapters.all[inst.type].secret) return go("")
         if (!raw.secret) return cb("enter the " + (Adapters.all[inst.type].secretLabel || "secret").toLowerCase(), "", false)
+        if (!Core.savedKeyAllowedFor(root.rawConfig, raw.secret, raw.url)) return cb(Core.RETYPE_KEY_TEXT, "", false)
         root._withSecret({ secret: raw.secret }, function(err, secret) {
             if (err) return cb("no saved key found — enter it again", "", false)
             go(secret)
@@ -293,6 +294,7 @@ Singleton {
             // Editing without retyping the key: it must already exist.
             var original = (root.rawConfig.instances || []).filter(function(x) { return x && x.name === originalName })[0]
             if (!original || original.secret !== r.secret) return cb("enter the " + (adapter.secretLabel || "secret").toLowerCase())
+            if (!Core.savedKeyAllowedFor(root.rawConfig, r.secret, r.url)) return cb(Core.RETYPE_KEY_TEXT)
         }
         if (!secretValue) return root._writeConfig(Core.upsertInstance(root.rawConfig, r, originalName), cb)
         if (!Core.parseSecretRef(r.secret) || Core.parseSecretRef(r.secret).kind !== "keyring")
