@@ -597,5 +597,40 @@ test("both dialog paths check the address before using a saved key", () => {
     assert(/savedKeyAllowedFor\(root\.rawConfig, r\.secret, r\.url\)[\s\S]*if \(!secretValue\) return root\._writeConfig/.test(body("saveInstance")), "saveInstance")
 })
 
+// ── gatus ────────────────────────────────────────────────────────────────────
+// Shaped like a real /api/v1/endpoints/statuses?pageSize=1 response (Gatus's
+// public demo, 2026-11): a bare array, newest result only.
+const gRes = (success, extra) => [Object.assign({ status: 200, hostname: "svc.lan", duration: 16476732,
+    conditionResults: [{ condition: "[STATUS] == 200", success }], success, timestamp: "2026-11-27T19:00:01.5Z" }, extra || {})]
+const gList = [
+    { name: "Router", group: "network", key: "network_router", results: gRes(true) },
+    { name: "DNS", group: "network", key: "network_dns", results: [{ duration: 1e10, conditionResults: [{ condition: "[CONNECTED] (false) == true", success: false }], success: false, timestamp: "2026-11-27T19:00:20Z" }] },
+    { name: "Jellyfin", group: "media", key: "media_jellyfin", results: gRes(false, { errors: ["Get \"http://10.0.0.5:8096\": <b>dial</b> tcp: connection refused"] }) },
+    { name: "New one", group: "media", key: "media_new-one", results: [] },
+    { name: "Blog", key: "_blog", results: gRes(true) },
+]
+test("gatus: grouped by group, ungrouped last, newest result decides", () => {
+    const { err, snap } = poll("gatus", {}, { "/api/v1/endpoints/statuses?pageSize=1": gList })
+    assert.strictEqual(err, null)
+    same(snap.groups.map(g => g.name), ["media", "network", "Ungrouped"])
+    same(snap.groups[1].members, [{ name: "Router", status: "ok", detail: "" }, { name: "DNS", status: "error", detail: "[CONNECTED] (false) == true" }])
+    same(snap.groups[0].members[0], { name: "Jellyfin", status: "error", detail: "Get \"http://10.0.0.5:8096\": dial tcp: connection refused" })
+    same(snap.groups[0].members[1], { name: "New one", status: "loading", detail: "no checks yet" })
+    same(snap.summary, [{ label: "Up", value: "2 / 4" }])   // not-yet-checked doesn't count
+    assert.strictEqual(Core.snapshotStatus(snap), S.ERROR)
+})
+test("gatus: anything but success === true is red, never green; junk tolerated", () => {
+    const { snap } = poll("gatus", {}, { "/api/v1/endpoints/statuses?pageSize=1": [
+        { key: "_a", results: [{ success: "true" }] }, { key: "_b", results: [{}] }, null, 7, { results: [{ success: false, errors: [] }] }] })
+    same(snap.groups[0].members.map(m => [m.name, m.status, m.detail]), [["_a", "error", "failing"], ["_b", "error", "failing"], ["unnamed endpoint", "error", "failing"]])
+})
+test("gatus: wrong shape is an error; no key, one per bar", () => {
+    for (const bad of [{}, { endpoints: [] }, null, 42]) assert(/doesn't look like/.test(poll("gatus", {}, { "/api/v1/endpoints/statuses?pageSize=1": bad }).err), JSON.stringify(bad))
+    assert.strictEqual(A.gatus.secret, false)
+    const g = n => ({ type: "gatus", name: "g" + n, url: "https://g" + n })
+    const c = Core.parseConfig(JSON.stringify({ instances: [g(1), g(2)] }), A)
+    assert.strictEqual(c.instances.length, 1)
+})
+
 console.log(passed + " passed, " + failed + " failed")
 process.exit(failed ? 1 : 0)

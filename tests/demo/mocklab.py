@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Fake homelab for screenshots. Serves made-up Proxmox, Portainer, Uptime
-Kuma (HTTP) and TrueNAS (WebSocket JSON-RPC) responses on 127.0.0.1.
-Nothing here is real data. Auth is accepted without checking.
+"""Fake homelab for screenshots and live tests. Serves made-up Proxmox,
+Portainer, Uptime Kuma, Healthchecks, Gatus (HTTP) and TrueNAS (WebSocket
+JSON-RPC) responses on 127.0.0.1. Nothing here is real data. Auth is
+accepted without checking, except Healthchecks, which answers 401 unless
+it gets the demo key.
 
 Jellyfin starts crashed. For a demo recording, start with --healthy and send
 SIGUSR1 to toggle it: `kill -USR1 <pid>` crashes it, again brings it back."""
@@ -50,9 +52,25 @@ BEAT_UP = KUMA_BEATS["heartbeatList"]["4"]
 KUMA_BEATS["uptimeList"]["4_24"] = 0.93
 
 
+def gatus(name, group, ok=True, errors=None):
+    r = {"status": 200 if ok else 502, "hostname": name.lower() + ".home.arpa", "duration": 16476732, "success": ok,
+         "conditionResults": [{"condition": "[STATUS] == 200", "success": ok}], "timestamp": "2026-11-22T20:00:01Z"}
+    if errors:
+        r["errors"] = errors
+    return {"name": name, "group": group, "key": group + "_" + name.lower(), "results": [r]}
+
+
+# /api/v1/endpoints/statuses?pageSize=1: newest result per endpoint.
+GATUS = [gatus("Router", "network"), gatus("Pi-hole", "network"), gatus("Jellyfin", "media"),
+         gatus("Immich", "media"), gatus("Nextcloud", "cloud")]
+GATUS_JELLYFIN_UP = GATUS[2]
+GATUS_JELLYFIN_DOWN = gatus("Jellyfin", "media", ok=False)
+
+
 def set_jellyfin(down):
     CONTAINERS[0] = JELLYFIN_DOWN if down else JELLYFIN_UP
     KUMA_BEATS["heartbeatList"]["4"] = BEAT_DOWN if down else BEAT_UP
+    GATUS[2] = GATUS_JELLYFIN_DOWN if down else GATUS_JELLYFIN_UP
 
 
 set_jellyfin(True)
@@ -76,6 +94,7 @@ HC_CHECKS = {"checks": [hc("Nightly backup", "up", "homelab backups"), hc("Offsi
 HC_KEY = "demo-not-a-real-key"
 
 ROUTES = {
+    "/api/v1/endpoints/statuses?pageSize=1": GATUS,
     "/api/v3/checks/?tag=homelab": HC_CHECKS,
     "/api2/json/nodes/pve/status": PVE_STATUS,
     "/api2/json/cluster/resources?type=vm": PVE_GUESTS,

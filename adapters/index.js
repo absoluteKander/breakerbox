@@ -4,6 +4,7 @@
 .import "truenas.js" as TrueNAS
 .import "uptimekuma.js" as UptimeKuma
 .import "healthchecks.js" as Healthchecks
+.import "gatus.js" as Gatus
 
 // Every adapter the plugin knows. Adding a service = one file in this folder
 // plus one line here; nothing in the UI changes. See docs/ADAPTERS.md.
@@ -15,5 +16,6 @@ var all = {
     truenas: TrueNAS.adapter,
     uptimekuma: UptimeKuma.adapter,
     healthchecks: Healthchecks.adapter,
+    gatus: Gatus.adapter,
 }
-var order = ["proxmox", "portainer", "truenas", "uptimekuma", "healthchecks"]
+var order = ["proxmox", "portainer", "truenas", "uptimekuma", "healthchecks", "gatus"]

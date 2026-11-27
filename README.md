@@ -11,8 +11,8 @@
 something trips, click it and the panel opens on exactly what broke:
 which container, in which stack, on which box.
 
-It reads Proxmox, Portainer, TrueNAS, Uptime Kuma and Healthchecks
-through their own APIs, so it knows *what* is down, not just that a port stopped answering.
+It reads Proxmox, Portainer, TrueNAS, Uptime Kuma, Healthchecks and
+Gatus through their own APIs, so it knows *what* is down, not just that a port stopped answering.
 
 This project was written entirely by Claude, an AI model made by Anthropic,
 at the direction of Absolute-Candor, who specified the behavior, reviewed
@@ -48,7 +48,7 @@ the result, and made every product and security decision described below.
 - **Status only.** It never tries to replace a service's own UI.
 
 Supported now: **Proxmox VE**, **Portainer**, **TrueNAS SCALE**,
-**Uptime Kuma** and **Healthchecks**. Adding another is one JS file; see
+**Uptime Kuma**, **Healthchecks** and **Gatus**. Adding another is one JS file; see
 [docs/ADAPTERS.md](docs/ADAPTERS.md).
 
 ## Built for small labs
@@ -159,7 +159,7 @@ See [`config.example.json`](config.example.json).
 
 | field | |
 |---|---|
-| `type` | `proxmox`, `portainer`, `truenas`, `uptimekuma` or `healthchecks` |
+| `type` | `proxmox`, `portainer`, `truenas`, `uptimekuma`, `healthchecks` or `gatus` |
 | `name` | your label; must be unique |
 | `url` | base URL, no API path |
 | `secret` | a **reference**: `keyring:<ref>` or `pass:<path>` (not for Uptime Kuma) |
@@ -170,7 +170,7 @@ Per service: **Proxmox** needs `tokenId` (`user@realm!name`) and `node`;
 **Portainer** needs `endpointId`; **TrueNAS** needs `username` (the user
 the API key belongs to);
 **Uptime Kuma** needs `slug` and no secret; **Healthchecks** takes an
-optional `tag`.
+optional `tag`; **Gatus** needs only its `url`.
 
 ### TrueNAS
 
@@ -202,6 +202,16 @@ ping URLs. One entry here is one Healthchecks project. Set `tag` to show
 only the checks with that tag. Checks are grouped by their first tag. A
 late check shows amber and a down one red; paused checks, and new ones that
 haven't pinged yet, show grey.
+
+### Gatus
+
+Reads Gatus's read-only API and shows your endpoints grouped the way your
+Gatus config groups them, with Gatus's own reason when one fails. Gatus
+has no API keys, so this works with a Gatus that answers without a login
+(on your LAN, or behind your reverse proxy's own access rules); one
+protected by Gatus's basic auth or OIDC isn't supported yet. Gatus's API
+doesn't report maintenance windows, so those don't show grey here. One
+Gatus per bar.
 
 Problems in the file are shown at the top of the panel, one per entry. A
 bad entry is skipped and the rest still load. If the file isn't valid
@@ -271,9 +281,8 @@ How fixes get tested, and what's treated as hostile input, is in
 
 **Screenshots** come from a fake lab, so no real addresses ever end up in
 an image. `tests/demo/mocklab.py` (standard-library Python) pretends to be
-Proxmox, Portainer, TrueNAS (including its WebSocket API), Uptime Kuma and
-Healthchecks
-on `127.0.0.1:8787`, with a crashed Jellyfin to show off.
+Proxmox, Portainer, TrueNAS (including its WebSocket API), Uptime Kuma,
+Healthchecks and Gatus on `127.0.0.1:8787`, with a crashed Jellyfin to show off.
 `tests/demo/screenshots.sh` does the whole thing: starts the fake lab,
 swaps in `tests/demo/demo-config.json` with dummy keyring entries, takes
 and crops every screenshot plus `preview.png`, then puts your own config
